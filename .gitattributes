@@ -1,0 +1,5 @@
+# Predictable source files across native Windows and other checkouts.
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary

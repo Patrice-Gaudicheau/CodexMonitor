@@ -1,0 +1,45 @@
+# .NET compilation and publication
+**/[Bb]in/
+**/[Oo]bj/
+/dist/
+/artifacts/
+*.exe
+*.dll
+*.pdb
+*.nupkg
+*.snupkg
+
+# SDK / NuGet caches and editor state
+/.dotnet-home/
+/.nuget/
+/.vs/
+/.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.cache
+
+# Temporary files, runtime data and local configuration
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.local.json
+.env
+.env.*
+!.env.example
+auth.json
+settings.json
+
+# Credentials / signing material must not be versioned
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa
+id_ed25519
+id_ecdsa
