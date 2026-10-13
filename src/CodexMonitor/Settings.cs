@@ -1,22 +1,28 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using CodexMonitor.Core;
 using Microsoft.Win32;
 
 namespace CodexMonitor;
 
-public sealed record Settings(string? SelectedQuota = null)
+public sealed record Settings(string? SelectedQuota = null, string? Language = "automatic")
 {
+    [JsonIgnore]
+    public LanguagePreference PreferredLanguage => Localization.ParsePreference(Language);
     private static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexMonitor", "settings.json");
-    public static Settings Load()
+    public static Settings Load() => Load(FilePath);
+    internal static Settings Load(string path)
     {
-        try { return JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new(); }
+        try { return JsonSerializer.Deserialize<Settings>(File.ReadAllText(path)) ?? new(); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return new(); }
     }
-    public void Save()
+    public void Save() => Save(FilePath);
+    internal void Save(string path)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        var temp = FilePath + ".tmp";
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temp = path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(this));
-        File.Move(temp, FilePath, true);
+        File.Move(temp, path, true);
     }
 }
 

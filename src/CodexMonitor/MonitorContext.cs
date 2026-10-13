@@ -10,14 +10,16 @@ internal sealed class MonitorContext : ApplicationContext
     private readonly Control dispatcher = new();
     private readonly System.Windows.Forms.Timer clock = new() { Interval = 1000 };
     private readonly CancellationTokenSource stopping = new();
-    private readonly ToolStripMenuItem refreshItem = new("Actualiser maintenant");
-    private readonly ToolStripMenuItem quotaItem = new("Quota affiché");
-    private readonly ToolStripMenuItem startupItem = new("Démarrer avec Windows");
+    private readonly ToolStripMenuItem refreshItem;
+    private readonly ToolStripMenuItem quotaItem;
+    private readonly ToolStripMenuItem startupItem;
+    private readonly TrayMenu.Items menuItems;
     private Settings settings = Settings.Load();
     private UsageSnapshot? snapshot;
     private AppServerClient? client;
     private bool refreshing, failed, exiting;
-    private string? problem;
+    private Exception? readError;
+    private string? issueKey;
     private DateTimeOffset nextRefresh = DateTimeOffset.MinValue;
     private string? renderKey;
     private DetailsForm? panel;
@@ -30,19 +32,25 @@ internal sealed class MonitorContext : ApplicationContext
     private bool menuOpened;
     private bool detailsOpened;
     private bool shellRecoveryRequested, shellRecoveryPassed;
+    private readonly bool verifyLanguageSwitch;
+    private bool languageSwitchVerified, languageSwitchPassed;
 
-    public MonitorContext(string? verificationDirectory)
+    public MonitorContext(string? verificationDirectory, bool verifyLanguageSwitch = false)
     {
+        this.verifyLanguageSwitch = verifyLanguageSwitch;
         this.verificationDirectory = verificationDirectory;
+        if (verificationDirectory is not null)
+        {
+            Directory.CreateDirectory(verificationDirectory);
+            File.WriteAllText(Path.Combine(verificationDirectory, "session.json"),
+                JsonSerializer.Serialize(new { processId = Environment.ProcessId, trayHandle = tray.Handle.ToInt64() }));
+        }
         _ = dispatcher.Handle; // Invisible UI dispatcher; no main window.
-        refreshItem.Click += (_, _) => StartRefresh(true);
-        quotaItem.DropDownOpening += (_, _) => BuildQuotaMenu();
-        startupItem.Click += (_, _) => ToggleStartup();
-        var aboutItem = new ToolStripMenuItem("À propos / Version");
-        aboutItem.Click += (_, _) => MessageBox.Show("CodexMonitor 1.0.0\n\nQuotas réels via Codex App Server.\nActualisation toutes les 60 secondes.\nUn clic sur le badge affiche les détails.", "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        var exitItem = new ToolStripMenuItem("Quitter");
-        exitItem.Click += (_, _) => ExitThread();
-        tray.Menu.Items.AddRange([refreshItem, quotaItem, startupItem, new ToolStripSeparator(), aboutItem, exitItem]);
+        menuItems = TrayMenu.Populate(tray.Menu, () => StartRefresh(true), BuildQuotaMenu,
+            ToggleStartup, () => MessageBox.Show(AppPresentation.AboutMessage, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Information), ExitThread, SelectLanguage);
+        refreshItem = menuItems.Refresh;
+        quotaItem = menuItems.Quota;
+        startupItem = menuItems.Startup;
         tray.Menu.Opening += (_, _) =>
         {
             try { startupItem.Checked = StartupRegistration.IsEnabled(); } catch (Exception e) when (e is UnauthorizedAccessException or System.Security.SecurityException or IOException) { startupItem.Checked = false; }
@@ -87,7 +95,7 @@ internal sealed class MonitorContext : ApplicationContext
             recoveryVerified = true;
             var oldPid = client?.ProcessId;
             client?.Dispose(); client = null;
-            failed = true; problem = "Test de reconnexion contrôlé.";
+            failed = true; readError = null; issueKey = nameof(UiText.ReconnectionTest);
             UpdatePresentation();
             observations.Add(new { action = "connectionDisposed", gray = CurrentValue is null, oldPid });
             StartRefresh(true);
@@ -101,6 +109,11 @@ internal sealed class MonitorContext : ApplicationContext
         {
             shellRecoveryPassed = tray.Registered && tray.GetRectangle() is not null;
             observations.Add(new { action = "taskbarCreatedRecovery", shellRecoveryPassed });
+        }
+        if (verifyLanguageSwitch && !languageSwitchVerified && shellRecoveryPassed && !refreshing && elapsed.Elapsed.TotalSeconds >= 16)
+        {
+            languageSwitchVerified = true;
+            VerifyLanguageSwitch();
         }
         if (elapsed.Elapsed.TotalSeconds >= 75 && !refreshing)
         {
@@ -128,7 +141,7 @@ internal sealed class MonitorContext : ApplicationContext
             var result = await client.ReadQuotaAsync(deadline.Token);
             var fetched = UsageSnapshot.Parse(result, DateTimeOffset.UtcNow);
             if (exiting) return;
-            snapshot = fetched; failed = false; problem = null;
+            snapshot = fetched; failed = false; readError = null; issueKey = null;
             successfulReads++;
             if (verificationDirectory is not null) observations.Add(new { action = "liveRead", successfulReads, at = snapshot.FetchedAt, value = CurrentValue, windows = snapshot.Windows.Count, processId = client.ProcessId });
         }
@@ -136,14 +149,7 @@ internal sealed class MonitorContext : ApplicationContext
         {
             if (exiting) return;
             failed = true;
-            problem = e switch
-            {
-                FileNotFoundException => "Codex CLI introuvable. Vérifiez l’installation native et CODEX_MONITOR_CODEX_PATH.",
-                OperationCanceledException => "La lecture Codex a dépassé 25 secondes. Nouvelle tentative automatique dans 60 secondes.",
-                AppServerException serverError => serverError.Message,
-                JsonException => "Réponse Codex inattendue. Vérifiez la version du CLI ; nouvelle tentative dans 60 secondes.",
-                _ => "Connexion Codex indisponible. Vérifiez « codex login status » et le réseau ; nouvelle tentative dans 60 secondes."
-            };
+            readError = e; issueKey = null;
             client?.Dispose(); client = null;
         }
         finally
@@ -170,27 +176,91 @@ internal sealed class MonitorContext : ApplicationContext
             tray.Set(BadgeRenderer.Create(value, tone, size), tip);
             renderKey = key;
         }
-        if (panel is { IsDisposed: false }) panel.UpdateUsage(DetailsViewModel.Create(snapshot, settings.SelectedQuota, now, failed, problem, refreshing));
+        if (panel is { IsDisposed: false }) panel.UpdateUsage(DetailsViewModel.Create(snapshot, settings.SelectedQuota, now, failed, Problem, refreshing));
+    }
+
+    private string? Problem => readError is not null ? AppPresentation.ErrorMessage(readError)
+        : issueKey is not null ? Localization.Get(issueKey) : null;
+
+    private void SelectLanguage(LanguagePreference preference)
+    {
+        var updated = settings with { Language = Localization.PreferenceValue(preference) };
+        try
+        {
+            if (verificationDirectory is null) updated.Save();
+            settings = updated;
+            Localization.ApplyPreference(preference);
+            TrayMenu.Relocalize(menuItems, preference);
+            BuildQuotaMenu();
+            renderKey = null;
+            UpdatePresentation();
+            if (verificationDirectory is not null) observations.Add(new { action = "languageSelected",
+                preference = Localization.PreferenceValue(preference), culture = Localization.Culture.Name,
+                detailsHandle = panel is { IsDisposed: false } ? panel.Handle.ToInt64() : 0,
+                tooltip = UsagePresentation.Tooltip(snapshot, settings.SelectedQuota, DateTimeOffset.UtcNow, failed),
+                nextRefresh, successfulReads, remaining = CurrentValue });
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { MessageBox.Show(UiText.LanguageSaveFailed, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    private void VerifyLanguageSwitch()
+    {
+        var originalValue = CurrentValue;
+        var originalRead = snapshot?.FetchedAt;
+        var originalNextRefresh = nextRefresh;
+        var originalPid = client?.ProcessId;
+        var originalReads = successfulReads;
+        var steps = new List<object>();
+        ShowDetails();
+        var handle = panel!.Handle;
+        var originalError = readError;
+        var originalIssue = issueKey;
+        var originalFailure = failed;
+        try
+        {
+            // The same already-open window must translate even its cached error.
+            failed = true; readError = AppServerException.FromCode("401"); issueKey = null;
+            foreach (var preference in new[] { LanguagePreference.English, LanguagePreference.French, LanguagePreference.Automatic })
+            {
+                menuItems.Language.DropDownItems.OfType<ToolStripMenuItem>().Single(i => Equals(i.Tag, preference)).PerformClick();
+                panel.Update();
+                var surface = panel.Controls.OfType<Panel>().Single(p => p.AutoScroll).Controls.OfType<DetailsSurface>().Single();
+                var button = panel.Controls.OfType<Panel>().SelectMany(p => p.Controls.OfType<Button>()).Single();
+                var passed = panel.Handle == handle && panel.Text == UiText.Title && button.Text == UiText.Refresh &&
+                    button.AccessibleName == UiText.RefreshAccessible && surface.AccessibilityObject.Name == UiText.DetailsAccessible &&
+                    surface.AccessibilityObject.Help?.Contains(Problem!) == true &&
+                    menuItems.Refresh.Text == UiText.RefreshNow &&
+                    menuItems.Language.DropDownItems.OfType<ToolStripMenuItem>().Count(i => i.Checked) == 1 &&
+                    snapshot?.FetchedAt == originalRead && nextRefresh == originalNextRefresh &&
+                    client?.ProcessId == originalPid && successfulReads == originalReads;
+                CaptureWindow(panel.Bounds, $"switch-{preference}-error.png");
+                tray.Menu.Show(new Point(10, 10));
+                menuItems.Language.ShowDropDown();
+                tray.Menu.Update();
+                CaptureWindow(Rectangle.Union(tray.Menu.Bounds, menuItems.Language.DropDown.Bounds), $"switch-{preference}-menu.png");
+                tray.Menu.Close();
+                steps.Add(new { preference = Localization.PreferenceValue(preference), culture = Localization.Culture.Name,
+                    title = panel.Text, tooltip = UsagePresentation.Tooltip(snapshot, settings.SelectedQuota, DateTimeOffset.UtcNow, failed),
+                    description = surface.AccessibilityObject.Help, passed });
+                if (!passed) throw new InvalidOperationException("Live language switch verification failed.");
+            }
+            languageSwitchPassed = true;
+        }
+        finally
+        {
+            failed = originalFailure; readError = originalError; issueKey = originalIssue;
+            Localization.ApplyPreference(LanguagePreference.Automatic);
+            TrayMenu.Relocalize(menuItems, Localization.Preference);
+            UpdatePresentation();
+            panel?.Close();
+            observations.Add(new { action = "languageSwitch", languageSwitchPassed, originalValue, originalRead, originalNextRefresh, originalPid, steps });
+        }
     }
 
     private void BuildQuotaMenu()
     {
-        var previous = quotaItem.DropDownItems.Cast<ToolStripItem>().ToArray();
-        quotaItem.DropDownItems.Clear();
-        foreach (var item in previous) item.Dispose();
-        var automatic = new ToolStripMenuItem("Automatique (priorité 5 h)") { Checked = settings.SelectedQuota is null };
-        automatic.Click += (_, _) => SelectQuota(null);
-        quotaItem.DropDownItems.Add(automatic);
-        quotaItem.DropDownItems.Add(new ToolStripSeparator());
-        foreach (var window in snapshot?.Windows ?? [])
-        {
-            var item = new ToolStripMenuItem(window.Label) { Checked = settings.SelectedQuota == window.Key };
-            item.Click += (_, _) => SelectQuota(window.Key);
-            quotaItem.DropDownItems.Add(item);
-        }
-        if (snapshot?.Windows.Count is not > 0) quotaItem.DropDownItems.Add(new ToolStripMenuItem("Aucun quota disponible") { Enabled = false });
-        else if (settings.SelectedQuota is not null && snapshot.Select(settings.SelectedQuota) is null)
-            quotaItem.DropDownItems.Add(new ToolStripMenuItem("Sélection précédente indisponible") { Enabled = false });
+        TrayMenu.PopulateQuotas(quotaItem, snapshot, settings.SelectedQuota, SelectQuota);
     }
 
     private void SelectQuota(string? key)
@@ -203,14 +273,14 @@ internal sealed class MonitorContext : ApplicationContext
             settings = updated; UpdatePresentation();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        { MessageBox.Show("Impossible d’enregistrer le quota sélectionné.", "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        { MessageBox.Show(UiText.SaveFailed, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
     private void ToggleStartup()
     {
         try { StartupRegistration.Set(!StartupRegistration.IsEnabled()); startupItem.Checked = StartupRegistration.IsEnabled(); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException)
-        { MessageBox.Show("Windows n’a pas autorisé l’enregistrement du démarrage automatique.", "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        { MessageBox.Show(UiText.StartupFailed, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
     private void ShowDetails()
@@ -218,7 +288,7 @@ internal sealed class MonitorContext : ApplicationContext
         if (panel is { IsDisposed: false }) { panel.Activate(); return; }
         panel = new DetailsForm();
         panel.RefreshRequested += () => StartRefresh(true);
-        panel.UpdateUsage(DetailsViewModel.Create(snapshot, settings.SelectedQuota, DateTimeOffset.UtcNow, failed, problem, refreshing));
+        panel.UpdateUsage(DetailsViewModel.Create(snapshot, settings.SelectedQuota, DateTimeOffset.UtcNow, failed, Problem, refreshing));
         panel.Show();
         ShowWindow(panel.Handle, 5); // Also show correctly if launched via a shortcut with SW_HIDE.
         panel.Activate();
@@ -226,7 +296,7 @@ internal sealed class MonitorContext : ApplicationContext
 
     public void HandleUnexpectedFailure()
     {
-        failed = true; problem = "Une erreur inattendue est survenue. Nouvelle tentative automatique.";
+        failed = true; readError = null; issueKey = nameof(UiText.UnexpectedError);
         renderKey = null; UpdatePresentation();
     }
 
@@ -240,12 +310,12 @@ internal sealed class MonitorContext : ApplicationContext
         bitmap.Save(Path.Combine(verificationDirectory!, "live-badge.png"));
         File.WriteAllText(Path.Combine(verificationDirectory!, "verification.json"), JsonSerializer.Serialize(new
         {
-            version = "1.0.0", successfulReads, manualReads, automaticReads, failed, remaining = CurrentValue,
+            version = AppPresentation.Version, uiCulture = Localization.Culture.Name, languageSwitchPassed, successfulReads, manualReads, automaticReads, failed, remaining = CurrentValue,
             windows = snapshot?.Windows.Select(w => new { w.Label, w.BadgeValue, w.DurationMinutes, w.ResetsAt }),
             trayRegistered = tray.Registered, trayRectangle = rect, trayIconPixels = tray.IconSize,
             noMainWindow = process.MainWindowHandle == IntPtr.Zero, memoryMiB = process.WorkingSet64 / 1048576,
             cpuSeconds = process.TotalProcessorTime.TotalSeconds, observations,
-            passed = successfulReads >= 4 && automaticReads >= 2 && manualReads >= 2 && !failed && CurrentValue is not null && tray.Registered && rect is not null && menuOpened && detailsOpened && recoveryVerified && shellRecoveryPassed && process.MainWindowHandle == IntPtr.Zero
+            passed = successfulReads >= 4 && automaticReads >= 2 && manualReads >= 2 && !failed && CurrentValue is not null && tray.Registered && rect is not null && menuOpened && detailsOpened && recoveryVerified && shellRecoveryPassed && (!verifyLanguageSwitch || languageSwitchPassed) && process.MainWindowHandle == IntPtr.Zero
         }, new JsonSerializerOptions { WriteIndented = true }));
     }
 

@@ -1,4 +1,5 @@
 # Optional visual integration check. CodexMonitor must already be running in the current interactive Windows session.
+param([string]$UICulture = [Globalization.CultureInfo]::CurrentUICulture.Name)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $output = Join-Path $projectRoot 'artifacts\verification\interactive'
@@ -37,7 +38,8 @@ try {
 } finally { $graphics.Dispose(); $bitmap.Dispose() }
 $icon.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 Start-Sleep -Milliseconds 400
-$panelName = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Quotas Codex')
+$title = if ([Globalization.CultureInfo]::GetCultureInfo($UICulture).TwoLetterISOLanguageName -eq 'fr') { 'Quotas Codex' } else { 'Codex quotas' }
+$panelName = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $title)
 $panel = $root.FindFirst($scope::Children, $panelName)
 if (-not $panel) { throw 'Left click did not open quota details' }
 $panel.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()

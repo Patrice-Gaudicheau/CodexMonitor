@@ -24,6 +24,10 @@ internal static class Program
         {
             System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.PerMonitorV2);
             System.Windows.Forms.Application.EnableVisualStyles();
+            // The existing French suite remains a deterministic reference on any Windows language.
+            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+            LocalizationTests.Run(Test);
+            LanguageOverrideTests.Run(Test);
             Test("remaining values 100/87/50/9/0", () =>
             {
                 foreach (var remaining in new[] { 100, 87, 50, 9, 0 })
@@ -258,8 +262,10 @@ internal static class Program
             var oldMode = Environment.GetEnvironmentVariable("CODEX_MONITOR_TEST_SERVER_MODE");
             try
             {
+                foreach (var culture in new[] { "fr-FR", "en-US" })
                 foreach (var mode in new[] { "normal", "malformed", "error", "hang", "exit", "callback" })
                 {
+                    using var scope = new LocalizationTests.CultureScope(culture);
                     Environment.SetEnvironmentVariable("CODEX_MONITOR_TEST_SERVER_MODE", mode);
                     using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                     using var fixture = await AppServerClient.ConnectAsync(Environment.ProcessPath!, cancellation.Token);
@@ -271,9 +277,12 @@ internal static class Program
                         succeeded = true;
                     }
                     catch (Exception e) when (e is IOException or JsonException or AppServerException or OperationCanceledException)
-                    { True(!e.Message.Contains("TEST_SECRET"), "Upstream secret escaped into error message"); }
+                    {
+                        True(!e.Message.Contains("TEST_SECRET"), "Upstream secret escaped into error message");
+                        if (mode == "error") Equal(Localization.Format(nameof(UiText.ServerRefused), 401), e.Message);
+                    }
                     Equal(mode is "normal" or "callback", succeeded);
-                    passed++; Console.WriteLine("PASS app-server transport " + mode);
+                    passed++; Console.WriteLine($"PASS app-server transport {culture} {mode}");
                 }
                 Environment.SetEnvironmentVariable("CODEX_MONITOR_TEST_SERVER_MODE", "normal");
                 using (var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5)))

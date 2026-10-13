@@ -1,4 +1,4 @@
-param([string]$Executable, [string]$OutputDirectory)
+param([string]$Executable, [string]$OutputDirectory, [string]$UICulture, [switch]$SwitchLanguage)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $Executable) { $Executable = Join-Path $projectRoot 'dist\win-x64\CodexMonitor.exe' }
@@ -12,15 +12,26 @@ try {
     # Point runtime discovery at a missing directory: the bundled runtime must suffice.
     $env:DOTNET_ROOT = Join-Path $OutputDirectory 'no-installed-runtime'
     $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-    $monitor = Start-Process -FilePath $Executable -ArgumentList @('--verify-live', ('"' + $OutputDirectory + '"')) -WindowStyle Hidden -PassThru
+    $arguments = @('--verify-live', ('"' + $OutputDirectory + '"'))
+    if ($UICulture) { $arguments += $UICulture }
+    if ($SwitchLanguage) {
+        if (-not $UICulture) { $arguments += [Globalization.CultureInfo]::CurrentUICulture.Name }
+        $arguments += '--switch-language'
+    }
+    $monitor = Start-Process -FilePath $Executable -ArgumentList $arguments -WindowStyle Hidden -PassThru
     Start-Sleep -Seconds 4
     if ($monitor.HasExited) { throw 'Verification monitor exited too early. Close any existing CodexMonitor instance.' }
-    $duplicate = Start-Process -FilePath $Executable -ArgumentList @('--verify-live', ('"' + $OutputDirectory + '"')) -WindowStyle Hidden -PassThru -Wait
+    $duplicate = Start-Process -FilePath $Executable -ArgumentList $arguments -WindowStyle Hidden -PassThru -Wait
     if ($duplicate.ExitCode -ne 10) { throw 'Single-instance guard failed' }
     if (-not $monitor.WaitForExit(110000)) { $monitor.Kill(); throw 'Published verification exceeded deadline' }
     if ($monitor.ExitCode -ne 0) { throw 'Published application failed' }
     $report = Get-Content -LiteralPath (Join-Path $OutputDirectory 'verification.json') -Raw | ConvertFrom-Json
     if (-not $report.passed) { throw 'Published functional verification failed. Inspect verification.json.' }
+    if ($SwitchLanguage -and -not $report.languageSwitchPassed) { throw 'Live language switch verification failed' }
+    if ($UICulture) {
+        $expectedCulture = if ([Globalization.CultureInfo]::GetCultureInfo($UICulture).TwoLetterISOLanguageName -eq 'fr') { 'fr-FR' } else { 'en-US' }
+        if ($report.uiCulture -ne $expectedCulture) { throw 'Published UI culture mismatch' }
+    }
     foreach ($observation in $report.observations) {
         if ($observation.action -ne 'liveRead') { continue }
         $ownedServer = Get-Process -Id $observation.processId -ErrorAction SilentlyContinue

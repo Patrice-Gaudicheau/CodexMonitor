@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 
 namespace CodexMonitor.Core;
@@ -12,18 +11,34 @@ public sealed record QuotaWindow(string Key, string BucketId, string BucketName,
     public int? BadgeValue => Remaining is { } value ? (int)Math.Floor(value) : null;
     public string DurationLabel => DurationMinutes switch
     {
-        300 => "5 h", 10080 => "Semaine", > 0 when DurationMinutes % 1440 == 0 => $"{DurationMinutes / 1440} j",
-        > 0 when DurationMinutes % 60 == 0 => $"{DurationMinutes / 60} h", > 0 => $"{DurationMinutes} min",
-        _ => Slot == "individualLimit" ? "Budget individuel" : Slot == "primary" ? "Principale" : "Secondaire"
+        300 => Localization.Format(nameof(UiText.Hours), 5), 10080 => UiText.Weekly,
+        > 0 when DurationMinutes % 1440 == 0 => Localization.Format(nameof(UiText.Days), DurationMinutes / 1440),
+        > 0 when DurationMinutes % 60 == 0 => Localization.Format(nameof(UiText.Hours), DurationMinutes / 60), > 0 => Localization.Format(nameof(UiText.Minutes), DurationMinutes),
+        _ => Slot == "individualLimit" ? UiText.IndividualBudget : Slot == "primary" ? UiText.Primary : UiText.Secondary
     };
     public string Label => $"{BucketName} · {DurationLabel}";
     public bool IsFresh(DateTimeOffset fetchedAt, DateTimeOffset now) =>
         now >= fetchedAt && now - fetchedAt < UsageSnapshot.MaximumAge && (ResetsAt is null || now < ResetsAt);
-    public string ResetLabel => ResetsAt?.ToLocalTime().ToString("dd/MM HH:mm", CultureInfo.CurrentCulture) ?? "inconnue";
+    public string ResetLabel => ResetsAt is { } reset ? Localization.Date(reset, UiText.TooltipDatePattern) : UiText.Unknown;
 }
 
-public sealed record UsageSnapshot(IReadOnlyList<QuotaWindow> Windows, IReadOnlyList<string> Notes, DateTimeOffset FetchedAt)
+public enum QuotaNoteKind { IncludedBlocked, Credits, LimitReached, SpendReached }
+
+/// <summary>Store facts rather than translated sentences so cached data can change language.</summary>
+public sealed record QuotaNote(QuotaNoteKind Kind, string? Bucket = null, string? Value = null, bool Unlimited = false)
 {
+    public string Text => Kind switch
+    {
+        QuotaNoteKind.IncludedBlocked => UiText.IncludedBlocked,
+        QuotaNoteKind.Credits => Localization.Format(nameof(UiText.Credits), Bucket, Unlimited ? UiText.Unlimited : Value ?? UiText.UnknownBalance),
+        QuotaNoteKind.SpendReached => Localization.Format(nameof(UiText.SpendReached), Bucket),
+        _ => Localization.Format(nameof(UiText.ReachedNotice), Bucket, Value)
+    };
+}
+
+public sealed record UsageSnapshot(IReadOnlyList<QuotaWindow> Windows, IReadOnlyList<QuotaNote> NoteItems, DateTimeOffset FetchedAt)
+{
+    public IReadOnlyList<string> Notes => NoteItems.Select(note => note.Text).ToArray();
     public static readonly TimeSpan MaximumAge = TimeSpan.FromMinutes(3);
 
     public QuotaWindow? Select(string? preference)
@@ -38,9 +53,9 @@ public sealed record UsageSnapshot(IReadOnlyList<QuotaWindow> Windows, IReadOnly
 
     public static UsageSnapshot Parse(JsonElement result, DateTimeOffset now)
     {
-        if (result.ValueKind != JsonValueKind.Object) throw new JsonException("Expected quota object.");
+        if (result.ValueKind != JsonValueKind.Object) throw new JsonException(UiText.ExpectedQuota);
         var windows = new List<QuotaWindow>();
-        var notes = new List<string>();
+        var notes = new List<QuotaNote>();
         var bucketIds = new HashSet<string>(StringComparer.Ordinal);
         // A present map is authoritative, including an empty map. Legacy is used only when the map is unavailable.
         if (result.TryGetProperty("rateLimitsByLimitId", out var map) && map.ValueKind == JsonValueKind.Object)
@@ -50,7 +65,7 @@ public sealed record UsageSnapshot(IReadOnlyList<QuotaWindow> Windows, IReadOnly
         else if (result.TryGetProperty("rateLimits", out var legacy) && legacy.ValueKind == JsonValueKind.Object)
             AddBucket(String(legacy, "limitId") ?? "codex", legacy);
         if (result.TryGetProperty("ordinaryUsageAllowed", out var allowed) && allowed.ValueKind == JsonValueKind.False)
-            notes.Add("Le service signale que l’utilisation incluse est bloquée.");
+            notes.Add(new(QuotaNoteKind.IncludedBlocked));
         return new(windows, notes, now);
 
         void AddBucket(string id, JsonElement bucket)
@@ -67,12 +82,12 @@ public sealed record UsageSnapshot(IReadOnlyList<QuotaWindow> Windows, IReadOnly
             if (bucket.TryGetProperty("credits", out var credits) && credits.ValueKind == JsonValueKind.Object)
             {
                 var unlimited = credits.TryGetProperty("unlimited", out var u) && u.ValueKind == JsonValueKind.True;
-                var balance = CleanLabel(String(credits, "balance") ?? "inconnu");
-                notes.Add($"{name} : crédits {(unlimited ? "illimités" : balance)} (hors pourcentage de quota).");
+                var balance = String(credits, "balance") is { } supplied ? CleanLabel(supplied) : null;
+                notes.Add(new(QuotaNoteKind.Credits, name, balance, unlimited));
             }
-            if (String(bucket, "rateLimitReachedType") is { } reached) notes.Add($"{name} : {CleanLabel(reached)}.");
+            if (String(bucket, "rateLimitReachedType") is { } reached) notes.Add(new(QuotaNoteKind.LimitReached, name, CleanLabel(reached)));
             if (bucket.TryGetProperty("spendControlReached", out var spend) && spend.ValueKind == JsonValueKind.True)
-                notes.Add($"{name} : plafond de dépenses atteint.");
+                notes.Add(new(QuotaNoteKind.SpendReached, name));
         }
     }
 
@@ -109,8 +124,8 @@ public static class UsagePresentation
     public static string Tooltip(UsageSnapshot? snapshot, string? selected, DateTimeOffset now, bool failed)
     {
         var lines = new List<string> { "CodexMonitor" };
-        if (failed) lines.Add("Lecture indisponible · clic : détails");
-        if (snapshot is null) lines.Add("Quotas indisponibles");
+        if (failed) lines.Add(UiText.ReadingUnavailable);
+        if (snapshot is null) lines.Add(UiText.QuotasUnavailable);
         else
         {
             var chosen = snapshot.Select(selected);
@@ -118,14 +133,14 @@ public static class UsagePresentation
             foreach (var w in ordered)
             {
                 var value = !failed && w.IsFresh(snapshot.FetchedAt, now) && w.Remaining is { } remaining
-                    ? $"{remaining:0.##}%" : "indisponible";
-                lines.Add($"{w.Label} : {value} · {w.ResetLabel}");
+                    ? Localization.Format(nameof(UiText.TooltipPercent), remaining) : UiText.UnavailableLower;
+                lines.Add(Localization.Format(nameof(UiText.TooltipLine), w.Label, value, w.ResetLabel));
             }
-            if (ordered.Count == 0 || chosen is null) lines.Add("Quota sélectionné indisponible");
+            if (ordered.Count == 0 || chosen is null) lines.Add(UiText.SelectedUnavailable);
         }
         var text = string.Join('\n', lines);
         if (text.Length <= 127) return text;
-        const string suffix = "… clic : tous les quotas";
+        var suffix = UiText.TooltipMore;
         var shortened = text[..(127 - suffix.Length)];
         if (char.IsHighSurrogate(shortened[^1])) shortened = shortened[..^1];
         return shortened + suffix;

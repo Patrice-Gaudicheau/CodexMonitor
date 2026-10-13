@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="Weekly" xml:space="preserve"><value>Semaine</value></data>
+  <data name="Days" xml:space="preserve"><value>{0} j</value></data>
+  <data name="Hours" xml:space="preserve"><value>{0} h</value></data>
+  <data name="Minutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="IndividualBudget" xml:space="preserve"><value>Budget individuel</value></data>
+  <data name="Primary" xml:space="preserve"><value>Principale</value></data>
+  <data name="Secondary" xml:space="preserve"><value>Secondaire</value></data>
+  <data name="Unknown" xml:space="preserve"><value>inconnue</value></data>
+  <data name="UnknownBalance" xml:space="preserve"><value>inconnu</value></data>
+  <data name="Unlimited" xml:space="preserve"><value>illimités</value></data>
+  <data name="IncludedBlocked" xml:space="preserve"><value>Le service signale que l’utilisation incluse est bloquée.</value></data>
+  <data name="Credits" xml:space="preserve"><value>{0} : crédits {1} (hors pourcentage de quota).</value></data>
+  <data name="SpendReached" xml:space="preserve"><value>{0} : plafond de dépenses atteint.</value></data>
+  <data name="ReadingUnavailable" xml:space="preserve"><value>Lecture indisponible · clic : détails</value></data>
+  <data name="QuotasUnavailable" xml:space="preserve"><value>Quotas indisponibles</value></data>
+  <data name="UnavailableLower" xml:space="preserve"><value>indisponible</value></data>
+  <data name="SelectedUnavailable" xml:space="preserve"><value>Quota sélectionné indisponible</value></data>
+  <data name="TooltipLine" xml:space="preserve"><value>{0} : {1} · {2}</value></data>
+  <data name="TooltipMore" xml:space="preserve"><value>… clic : tous les quotas</value></data>
+  <data name="TooltipPercent" xml:space="preserve"><value>{0:0.##}%</value></data>
+  <data name="Percent" xml:space="preserve"><value>{0} %</value></data>
+  <data name="RemainingValue" xml:space="preserve"><value>{0:0.##} % restants</value></data>
+  <data name="Cadence" xml:space="preserve"><value>Actualisation toutes les 60 secondes.</value></data>
+  <data name="Freshness" xml:space="preserve"><value>Un tiret indique des données indisponibles ou périmées : après 3 minutes sans lecture valide, ou à la réinitialisation.</value></data>
+  <data name="DescriptionQuota" xml:space="preserve"><value>{0} · {1} : {2} restants. {3}</value></data>
+  <data name="DescriptionReset" xml:space="preserve"><value>Réinitialisation : {0}, {1}</value></data>
+  <data name="DescriptionRead" xml:space="preserve"><value>Dernière lecture réussie : {0}, {1}</value></data>
+  <data name="DescriptionOther" xml:space="preserve"><value>{0} : {1}. Réinitialisation : {2}</value></data>
+  <data name="DataUnavailable" xml:space="preserve"><value>Données indisponibles</value></data>
+  <data name="Exhausted" xml:space="preserve"><value>Quota épuisé</value></data>
+  <data name="Available" xml:space="preserve"><value>Quota disponible</value></data>
+  <data name="Watch" xml:space="preserve"><value>À surveiller</value></data>
+  <data name="Low" xml:space="preserve"><value>Quota bientôt épuisé</value></data>
+  <data name="Stale" xml:space="preserve"><value>La dernière valeur est périmée. Actualisez pour retrouver votre quota.</value></data>
+  <data name="MissingSelected" xml:space="preserve"><value>Le quota sélectionné n’est pas disponible dans la dernière réponse.</value></data>
+  <data name="MissingPercentage" xml:space="preserve"><value>Aucun pourcentage de quota n’a été fourni par Codex pour le moment.</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>Indisponible</value></data>
+  <data name="NotReported" xml:space="preserve"><value>Non communiquée</value></data>
+  <data name="FiveHours" xml:space="preserve"><value>5 heures</value></data>
+  <data name="SelectedQuota" xml:space="preserve"><value>Quota sélectionné</value></data>
+  <data name="DatePattern" xml:space="preserve"><value>dd MMMM yyyy</value></data>
+  <data name="ShortDateTimePattern" xml:space="preserve"><value>dd MMM yyyy · HH:mm</value></data>
+  <data name="TooltipDatePattern" xml:space="preserve"><value>dd/MM HH:mm</value></data>
+  <data name="TimePattern" xml:space="preserve"><value>HH:mm '· heure locale'</value></data>
+  <data name="ReadTimePattern" xml:space="preserve"><value>HH:mm:ss '· heure locale'</value></data>
+  <data name="NoResetDate" xml:space="preserve"><value>Date non fournie par Codex</value></data>
+  <data name="NoReading" xml:space="preserve"><value>Aucune lecture réussie</value></data>
+  <data name="Waiting" xml:space="preserve"><value>En attente de Codex</value></data>
+  <data name="Title" xml:space="preserve"><value>Quotas Codex</value></data>
+  <data name="Subtitle" xml:space="preserve"><value>Vos quotas, en un coup d’œil.</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Actualiser</value></data>
+  <data name="Refreshing" xml:space="preserve"><value>Actualisation…</value></data>
+  <data name="RefreshAccessible" xml:space="preserve"><value>Actualiser les quotas</value></data>
+  <data name="DetailsAccessible" xml:space="preserve"><value>Détails du quota Codex</value></data>
+  <data name="SelectedHeading" xml:space="preserve"><value>QUOTA SÉLECTIONNÉ</value></data>
+  <data name="ResetHeading" xml:space="preserve"><value>Réinitialisation</value></data>
+  <data name="ReadHeading" xml:space="preserve"><value>Dernière lecture</value></data>
+  <data name="Others" xml:space="preserve"><value>Autres quotas</value></data>
+  <data name="OtherRow" xml:space="preserve"><value>{0} · remise à zéro : {1}</value></data>
+  <data name="Remaining" xml:space="preserve"><value>restants</value></data>
+  <data name="RefreshNow" xml:space="preserve"><value>Actualiser maintenant</value></data>
+  <data name="DisplayedQuota" xml:space="preserve"><value>Quota affiché</value></data>
+  <data name="Startup" xml:space="preserve"><value>Démarrer avec Windows</value></data>
+  <data name="About" xml:space="preserve"><value>À propos / Version</value></data>
+  <data name="Exit" xml:space="preserve"><value>Quitter</value></data>
+  <data name="AboutBody" xml:space="preserve"><value>CodexMonitor {0}
+
+Quotas réels via Codex App Server.
+Actualisation toutes les 60 secondes.
+Un clic sur le badge affiche les détails.</value></data>
+  <data name="Automatic" xml:space="preserve"><value>Automatique (priorité 5 h)</value></data>
+  <data name="NoQuotas" xml:space="preserve"><value>Aucun quota disponible</value></data>
+  <data name="PreviousUnavailable" xml:space="preserve"><value>Sélection précédente indisponible</value></data>
+  <data name="SaveFailed" xml:space="preserve"><value>Impossible d’enregistrer le quota sélectionné.</value></data>
+  <data name="StartupFailed" xml:space="preserve"><value>Windows n’a pas autorisé l’enregistrement du démarrage automatique.</value></data>
+  <data name="UnexpectedError" xml:space="preserve"><value>Une erreur inattendue est survenue. Nouvelle tentative automatique.</value></data>
+  <data name="CliMissing" xml:space="preserve"><value>Codex CLI introuvable. Vérifiez l’installation native et CODEX_MONITOR_CODEX_PATH.</value></data>
+  <data name="Timeout" xml:space="preserve"><value>La lecture Codex a dépassé 25 secondes. Nouvelle tentative automatique dans 60 secondes.</value></data>
+  <data name="InvalidResponse" xml:space="preserve"><value>Réponse Codex inattendue. Vérifiez la version du CLI ; nouvelle tentative dans 60 secondes.</value></data>
+  <data name="ConnectionUnavailable" xml:space="preserve"><value>Connexion Codex indisponible. Vérifiez « codex login status » et le réseau ; nouvelle tentative dans 60 secondes.</value></data>
+  <data name="ServerRefused" xml:space="preserve"><value>Codex refuse la lecture (code {0}). Vérifiez « codex login status » et la connexion réseau.</value></data>
+  <data name="InvalidCliPath" xml:space="preserve"><value>CODEX_MONITOR_CODEX_PATH doit désigner un exécutable existant par son chemin absolu.</value></data>
+  <data name="NativeCliMissing" xml:space="preserve"><value>Codex CLI natif introuvable. Installez Codex et connectez-vous avec « codex login ».</value></data>
+  <data name="ConnectionClosed" xml:space="preserve"><value>Connexion App Server fermée.</value></data>
+  <data name="OversizedResponse" xml:space="preserve"><value>Réponse App Server trop volumineuse.</value></data>
+  <data name="InvalidEnvelope" xml:space="preserve"><value>Enveloppe App Server invalide.</value></data>
+  <data name="MissingResult" xml:space="preserve"><value>Résultat App Server manquant.</value></data>
+  <data name="ExpectedQuota" xml:space="preserve"><value>Objet de quota attendu.</value></data>
+  <data name="ReconnectionTest" xml:space="preserve"><value>Test de reconnexion contrôlé.</value></data>
+  <data name="LanguageMenu" xml:space="preserve"><value>Langue / Language</value></data>
+  <data name="LanguageAutomatic" xml:space="preserve"><value>Automatique (Windows)</value></data>
+  <data name="LanguageFrench" xml:space="preserve"><value>Français</value></data>
+  <data name="LanguageEnglish" xml:space="preserve"><value>English</value></data>
+  <data name="LanguageSaveFailed" xml:space="preserve"><value>Impossible d’enregistrer la langue sélectionnée.</value></data>
+  <data name="ReachedNotice" xml:space="preserve"><value>{0} : {1}.</value></data>
+</root>

@@ -1,8 +1,14 @@
 # Verify the real installed details window through Windows UI Automation.
 # CodexMonitor must already be running; only its own icon and window are inspected.
-param([string]$OutputDirectory, [switch]$RequireNoScrollbar)
+param([string]$OutputDirectory, [switch]$RequireNoScrollbar, [string]$UICulture = [Globalization.CultureInfo]::CurrentUICulture.Name)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$french = [Globalization.CultureInfo]::GetCultureInfo($UICulture).TwoLetterISOLanguageName -eq 'fr'
+$title = if ($french) { 'Quotas Codex' } else { 'Codex quotas' }
+$groupName = if ($french) { 'Détails du quota Codex' } else { 'Codex quota details' }
+$refreshName = if ($french) { 'Actualiser les quotas' } else { 'Refresh quotas' }
+$remainingText = if ($french) { 'restants' } else { 'remaining' }
+$resetText = if ($french) { 'Réinitialisation' } else { 'Resets' }
 $output = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $projectRoot 'artifacts\verification\details-redesign\installed' }
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $runtimeRoot = Join-Path $env:ProgramFiles 'dotnet\shared\Microsoft.WindowsDesktop.App'
@@ -34,20 +40,20 @@ if (-not $icon) {
 if (-not $icon) { throw 'CodexMonitor tray icon not found' }
 $icon.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 Start-Sleep -Milliseconds 400
-$panel = $root.FindFirst($scope::Children,[System.Windows.Automation.PropertyCondition]::new($nameProperty,'Quotas Codex'))
+$panel = $root.FindFirst($scope::Children,[System.Windows.Automation.PropertyCondition]::new($nameProperty,$title))
 if (-not $panel) { throw 'Details did not open through the tray icon' }
 try {
-    $group = $panel.FindFirst($scope::Descendants,[System.Windows.Automation.PropertyCondition]::new($nameProperty,'Détails du quota Codex'))
+    $group = $panel.FindFirst($scope::Descendants,[System.Windows.Automation.PropertyCondition]::new($nameProperty,$groupName))
     $before = $group.Current.HelpText
     if (-not $before) { throw 'Accessible quota description missing' }
-    $button = $panel.FindFirst($scope::Descendants,[System.Windows.Automation.PropertyCondition]::new($nameProperty,'Actualiser les quotas'))
+    $button = $panel.FindFirst($scope::Descendants,[System.Windows.Automation.PropertyCondition]::new($nameProperty,$refreshName))
     if (-not $button.Current.IsEnabled) { throw 'Refresh was unexpectedly disabled' }
     Start-Sleep -Milliseconds 1100
     $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Seconds 3
     $after = $group.Current.HelpText
     if ($after -eq $before) { throw 'No updated successful-read timestamp after the real refresh button' }
-    if (-not $after.Contains('restants') -or -not $after.Contains('Réinitialisation')) { throw 'Quota details missing' }
+    if (-not $after.Contains($remainingText) -or -not $after.Contains($resetText)) { throw 'Quota details missing' }
     $layout = $null
     if ($RequireNoScrollbar) {
         Add-Type -TypeDefinition @'

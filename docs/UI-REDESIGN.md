@@ -1,58 +1,68 @@
-# Refonte du panneau de détails — 13 octobre 2026
+# Details window redesign — 13 October 2026
 
-La fenêtre ouverte par clic sur le badge utilise désormais une présentation native Windows Forms inspirée de Windows 11 : fond clair, cartes blanches arrondies, accents menthe/turquoise, anneau de quota avec pourcentage central, titre du quota sélectionné et bouton « Actualiser » large en bas.
+This is a historical record of the **v1.0.0** French details-window redesign and its final height correction. It describes those stages, not the later v1.1.0 localization changes or a current GitHub Release. Current language behavior is documented in [LOCALIZATION.md](LOCALIZATION.md).
 
-Les cartes « Réinitialisation » et « Dernière lecture » affichent les dates et heures réelles, en français et dans le fuseau Windows. La cadence et la règle de péremption restent visibles dans une zone plus discrète. Les autres quotas et informations de crédits sont conservés dans le contenu défilant. Le bouton reste accessible lorsque le contenu déborde ; la touche Échap ferme le panneau.
+## Design
 
-La fenêtre conserve sa bordure et son bouton de fermeture natifs. Ses coins arrondis utilisent le paramètre DWM documenté de Windows 11. Les cartes et l’anneau sont dessinés avec GDI+, sans image, WebView ni dépendance ajoutée. Le bouton est un véritable contrôle Windows Forms utilisable au clavier et via l’accessibilité Windows. Les cartes exposent leur contenu aux lecteurs d’écran.
+Clicking the tray badge opens a native Windows Forms window inspired by Windows 11: a light background, rounded white cards, mint/turquoise accents, a circular quota indicator with a central percentage, the selected quota title, and a large Refresh button at the bottom.
 
-## Portée
+Reset and last-reading cards show the supplied dates and times in French and the local Windows timezone. A quieter information area explains the refresh interval and stale-data rule. Other quotas and credit information remain available in the scrollable content. The Refresh button stays accessible when content overflows; Esc closes the window.
 
-- Ajout de `DetailsForm.cs` et `DetailsViewModel.cs` ; remplacement du TextBox de détails dans `MonitorContext.cs`.
-- Le modèle de présentation réutilise exactement la sélection et la fraîcheur définies dans `CodexMonitor.Core`. Une panne ou une valeur périmée donne un tiret et aucun arc de pourcentage.
-- Les fichiers de calcul des quotas, du transport App Server, du rendu du badge, de la zone de notification, des préférences, du point d’entrée et de la configuration de publication sont **inchangés**, empreintes vérifiées avant/après.
-- Aucune modification des intervalles, des méthodes App Server, du menu du badge ou du format de publication. Le même exécutable autonome x64 a été remplacé à `dist/win-x64/CodexMonitor.exe` puis relancé.
-- Le démarrage automatique précédemment demandé demeure actif, avec la même commande de registre. Aucun changement de cette commande pendant la refonte.
+The window retains its native border and close button. Rounded window corners use the documented Windows 11 DWM attribute. GDI+ draws the cards and ring without image assets, WebView, or new dependencies. The button is a real Windows Forms control accessible by keyboard and Windows accessibility APIs. Cards expose their content to screen readers.
 
-## Vérification
+## Scope of the redesign
 
-- **22 groupes de tests réussis**, incluant les 20 groupes préexistants, les états sélectionné/manquant/périmé du nouveau panneau, les dates et le bouton natif.
-- Rendus des cartes examinés à 100, 125, 150 et 200 %, avec 100/87/50/9/0 et donnée manquante. Le rendu à 100 % a également été vérifié dans la véritable fenêtre Windows. Les paramètres d’affichage de la machine n’ont pas été changés.
-- Mise à l’échelle native `AutoScaleMode.Dpi`, dessin en coordonnées logiques, taille du panneau limitée à la hauteur disponible sur l’écran ; contenu défilant et bouton fixe. Pas de pourcentage tronqué à 100 %.
-- Essai de 75 secondes de la publication : quotas réels, rafraîchissement automatique et manuel, reconnexion, restauration du badge, double instance et arrêt du serveur : réussi.
-- Après installation, le clic sur l’icône a ouvert la vraie fenêtre. Windows UI Automation a ensuite actionné son vrai bouton « Actualiser » : nouvelle lecture réussie et nouvel horaire observés, puis fermeture normale du panneau. L’application reste active dans la zone de notification.
-- Dernière vérification : **86 % restants, Semaine**, réinitialisation fournie le 18 octobre 2026 à 08:28, heure locale.
+- Added `DetailsForm.cs` and `DetailsViewModel.cs`; replaced the details TextBox in `MonitorContext.cs`.
+- Reused the exact selection and freshness rules from `CodexMonitor.Core`. A failure or stale reading displays a dash with no percentage arc.
+- Quota calculation, App Server transport, badge rendering, tray integration, settings, entry point, and publishing configuration were unchanged during this stage, verified by before/after hashes.
+- Refresh intervals, App Server methods, the tray menu, and distribution format were unchanged. The local self-contained x64 executable at `dist/win-x64/CodexMonitor.exe` was replaced and restarted.
+- Startup had already been enabled by the user at this stage. Its registry command and executable path stayed unchanged.
 
-Capture finale : `artifacts/verification/details-redesign/installed/details-window.png`.
+## Initial redesign verification
 
-Rapport d’interaction : `artifacts/verification/details-redesign/installed/ui-interaction.json`.
+- **22 test groups passed**, including the 20 existing groups and checks for the new panel's selected/missing/stale states, dates, and native button.
+- Card renderings were inspected at 100%, 125%, 150%, and 200%, with 100/87/50/9/0% remaining and missing data. The actual Windows window was also verified at 100%. Windows display settings were not changed.
+- Native `AutoScaleMode.Dpi`, drawing in logical coordinates, height bounded by the screen working area, scrollable content, and a fixed button were verified. The 100% value was not clipped.
+- A 75-second local published-executable check passed: live quotas, automatic/manual refresh, reconnection, badge recovery, duplicate-instance rejection, and server shutdown.
+- After replacement, the actual tray icon opened the window. Windows UI Automation invoked its real Refresh button; a successful new reading and updated time were observed, then the panel closed normally. The monitor remained active in the tray.
+- The final reading for this stage was **86% remaining, weekly quota**, with a supplied reset time of **18 October 2026 at 08:28 local time**.
 
-Publication de la refonte avant la correction finale de hauteur, version 1.0.0, SHA-256 :
+Local evidence:
+
+- `artifacts/verification/details-redesign/installed/details-window.png`
+- `artifacts/verification/details-redesign/installed/ui-interaction.json`
+
+Recorded local v1.0.0 build before the final height correction, SHA-256:
 
 `609821028383F11E2771EBE13E5FD5D24D744DC952BF5B2A5B7ECDBB1591B53E`
 
-Pour reproduire les contrôles : `scripts/Test.ps1 -Live`, puis `scripts/Verify-DetailsWindow.ps1` avec CodexMonitor déjà ouvert. Ce dernier ne consulte que la zone de notification et la fenêtre du programme, sans modification de réglage.
+The controls were reproduced with `scripts/Test.ps1 -Live` and `scripts/Verify-DetailsWindow.ps1` while CodexMonitor was already running. The latter inspects and interacts with the application's notification-area icon and details window without changing settings.
 
-## Correction finale : barre de défilement
+## Final correction: unnecessary scrollbar
 
-La hauteur de la fenêtre est maintenant calculée à partir du contenu mesuré à pleine largeur, du pied contenant le bouton et de l’espace réellement disponible sur l’écran. Aucun changement des marges, de la typographie, du dessin des cartes, de l’anneau ou du bouton. Le défilement reste actif uniquement lorsque la hauteur d’écran ne permet pas de tout afficher, et disparaît lorsque suffisamment d’espace redevient disponible.
+Window height was adjusted to use the content measured at full width, the button footer, and the available screen working area. Margins, typography, cards, ring, and button design stayed unchanged. Scrolling remains available when the screen is too short and disappears when enough height becomes available.
 
-**23 groupes de tests réussis.** Vérification du chemin Windows Forms `WM_DPICHANGED` à 96/120/144 DPI, avec simulation du DPI des contrôles enfants dans le programme de test seulement ; les réglages Windows globaux n’ont pas été modifiés. Les captures et mesures confirment tout le contenu visible sans barre :
+**23 test groups passed.** The Windows Forms `WM_DPICHANGED` path was exercised at 96/120/144 DPI, with child-control DPI cache simulation only inside the test process. Global Windows settings were unchanged. Captures and measurements showed all content visible without a scrollbar:
 
-| Échelle | Hauteur du contenu | Hauteur disponible | Barre verticale |
+| Scale | Content height | Viewport height | Vertical scrollbar |
 | --- | --- | --- | --- |
-| 100 % | 585 px | 587 px | Absente |
-| 125 % | 732 px | 735 px | Absente |
-| 150 % | 878 px | 881 px | Absente |
+| 100% | 585 px | 587 px | Absent |
+| 125% | 732 px | 735 px | Absent |
+| 150% | 878 px | 881 px | Absent |
 
-La hauteur d’écran simulée de 720 px conserve le défilement, permet d’atteindre la dernière ligne et garde le bouton visible. Le retour à une hauteur suffisante supprime de nouveau la barre.
+A simulated 720-pixel screen height retained scrolling, allowed the last line to be reached, and kept the button visible. Restoring sufficient height removed the scrollbar again.
 
-L’exécutable installé a été relancé et sa fenêtre réelle à 100 % a été contrôlée par Windows UI Automation et les styles natifs de son viewport : barre verticale absente, contenu de 585 px entièrement contenu dans les 587 px disponibles. Le bouton « Actualiser » a déclenché une nouvelle lecture réelle. La correction augmente ici la hauteur client de seulement 5 px.
+The replaced executable was restarted and its actual 100% window checked through Windows UI Automation and the native viewport styles: no vertical scrollbar, with all 585 pixels of content inside the 587-pixel viewport. The native Refresh button triggered another successful live reading. This correction increased client height by only 5 pixels in that configuration.
 
-La lecture des quotas, le rendu du badge, le transport, le rafraîchissement, le modèle de présentation et la publication sont inchangés, empreintes vérifiées. Le démarrage automatique reste actif au même emplacement.
+Quota reading, badge rendering, transport, refresh behavior, presentation model, and publishing configuration remained unchanged, verified by hashes. Startup remained enabled at the same path.
 
-Capture finale : `artifacts/verification/ui-polish/installed/details-window.png`.
+Local evidence:
 
-Mesures DPI : `artifacts/verification/ui-polish/dpi-layout.json`.
+- `artifacts/verification/ui-polish/installed/details-window.png`
+- `artifacts/verification/ui-polish/dpi-layout.json`
 
-Publication actuelle, SHA-256 : `364B3BAFE2F3D17A018AAFB47C6302404DB71147058900CAF0C8FC745D0218B3`.
+Recorded final local v1.0.0 UI-polish build, SHA-256:
+
+`364B3BAFE2F3D17A018AAFB47C6302404DB71147058900CAF0C8FC745D0218B3`
+
+These hashes identify historical local builds, not the current download. Use the checksum file from the intended GitHub Release to verify a downloaded executable. Local reports and captures are ignored artifacts; current reproduction instructions are in [DEVELOPMENT.md](DEVELOPMENT.md).

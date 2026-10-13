@@ -1,4 +1,3 @@
-using System.Globalization;
 using CodexMonitor.Core;
 
 namespace CodexMonitor;
@@ -11,16 +10,16 @@ public sealed record DetailsViewModel(
     string Status, string? Issue, string ResetDate, string ResetTime, string ReadDate, string ReadTime,
     bool Refreshing, IReadOnlyList<DetailQuotaRow> OtherQuotas, IReadOnlyList<string> Notes)
 {
-    private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-FR");
-    public const string Cadence = "Actualisation toutes les 60 secondes.";
-    public const string Freshness = "Un tiret indique des données indisponibles ou périmées : après 3 minutes sans lecture valide, ou à la réinitialisation.";
-    public string PercentageText => Percentage is { } value ? $"{value} %" : "—";
+    public static string Cadence => UiText.Cadence;
+    public static string Freshness => UiText.Freshness;
+    public string PercentageText => Percentage is { } value ? Localization.Format(nameof(UiText.Percent), value) : "—";
     public string Description => string.Join("\n", new[]
     {
-        $"{QuotaLabel} · {Bucket} : {PercentageText} restants. {Status}", Issue,
-        $"Réinitialisation : {ResetDate}, {ResetTime}", $"Dernière lecture réussie : {ReadDate}, {ReadTime}",
+        Localization.Format(nameof(UiText.DescriptionQuota), QuotaLabel, Bucket, PercentageText, Status), Issue,
+        Localization.Format(nameof(UiText.DescriptionReset), ResetDate, ResetTime),
+        Localization.Format(nameof(UiText.DescriptionRead), ReadDate, ReadTime),
         Cadence, Freshness,
-        string.Join("\n", OtherQuotas.Select(q => $"{q.Label} : {q.Value}. Réinitialisation : {q.Reset}")),
+        string.Join("\n", OtherQuotas.Select(q => Localization.Format(nameof(UiText.DescriptionOther), q.Label, q.Value, q.Reset))),
         string.Join("\n", Notes)
     }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
@@ -31,31 +30,29 @@ public sealed record DetailsViewModel(
         var value = UsagePresentation.DisplayValue(snapshot, selected, now, failed);
         var remaining = value is null ? null : window?.Remaining;
         var tone = UsagePresentation.Tone(remaining);
-        var status = value is null ? "Données indisponibles" : value == 0 ? "Quota épuisé" : tone switch
+        var status = value is null ? UiText.DataUnavailable : value == 0 ? UiText.Exhausted : tone switch
         {
-            BadgeTone.Green => "Quota disponible", BadgeTone.Orange => "À surveiller", _ => "Quota bientôt épuisé"
+            BadgeTone.Green => UiText.Available, BadgeTone.Orange => UiText.Watch, _ => UiText.Low
         };
         string? issue = problem;
         if (issue is null && value is null)
             issue = window is not null && window.Remaining is not null
-                ? "La dernière valeur est périmée. Actualisez pour retrouver votre quota."
-                : selected is not null ? "Le quota sélectionné n’est pas disponible dans la dernière réponse."
-                : "Aucun pourcentage de quota n’a été fourni par Codex pour le moment.";
-        var reset = window?.ResetsAt?.ToLocalTime();
-        var read = snapshot?.FetchedAt.ToLocalTime();
+                ? UiText.Stale
+                : selected is not null ? UiText.MissingSelected
+                : UiText.MissingPercentage;
         var other = (snapshot?.Windows ?? []).Where(w => w != window).Select(w =>
         {
             var valid = !failed && w.IsFresh(snapshot!.FetchedAt, now);
             var percent = valid ? w.Remaining : null;
-            return new DetailQuotaRow(w.Label, percent is { } p ? $"{p.ToString("0.##", French)} % restants" : "Indisponible",
-                w.ResetsAt?.ToLocalTime().ToString("dd MMM yyyy · HH:mm", French) ?? "Non communiquée");
+            return new DetailQuotaRow(w.Label, percent is { } p ? Localization.Format(nameof(UiText.RemainingValue), p) : UiText.Unavailable,
+                w.ResetsAt is { } reset ? Localization.Date(reset, UiText.ShortDateTimePattern) : UiText.NotReported);
         }).ToArray();
-        return new(window?.DurationMinutes == 300 ? "5 heures" : window?.DurationLabel ?? "Quota sélectionné",
+        return new(window?.DurationMinutes == 300 ? UiText.FiveHours : window?.DurationLabel ?? UiText.SelectedQuota,
             window?.BucketName ?? "Codex", value, remaining, tone, status, issue,
-            reset?.ToString("dd MMMM yyyy", French) ?? "Non communiquée",
-            reset?.ToString("HH:mm '· heure locale'", French) ?? "Date non fournie par Codex",
-            read?.ToString("dd MMMM yyyy", French) ?? "Aucune lecture réussie",
-            read?.ToString("HH:mm:ss '· heure locale'", French) ?? "En attente de Codex",
+            window?.ResetsAt is { } r ? Localization.Date(r, UiText.DatePattern) : UiText.NotReported,
+            window?.ResetsAt is { } t ? Localization.Date(t, UiText.TimePattern) : UiText.NoResetDate,
+            snapshot is not null ? Localization.Date(snapshot.FetchedAt, UiText.DatePattern) : UiText.NoReading,
+            snapshot is not null ? Localization.Date(snapshot.FetchedAt, UiText.ReadTimePattern) : UiText.Waiting,
             refreshing, other, snapshot?.Notes ?? []);
     }
 }

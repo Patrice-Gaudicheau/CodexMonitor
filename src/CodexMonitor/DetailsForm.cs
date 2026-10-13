@@ -18,7 +18,7 @@ public sealed class DetailsForm : Form
 
     public DetailsForm()
     {
-        Text = "Quotas Codex";
+        Text = UiText.Title;
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(520, 670);
@@ -31,10 +31,10 @@ public sealed class DetailsForm : Form
         BackColor = DetailsTheme.Background;
         Font = new Font("Segoe UI", 10);
         actionArea = new Panel { Dock = DockStyle.Bottom, Height = 88, BackColor = DetailsTheme.Background, Padding = new Padding(24, 8, 24, 24) };
-        refresh = new MintButton { Text = "Actualiser", AccessibleName = "Actualiser les quotas", Dock = DockStyle.Fill, TabIndex = 0 };
+        refresh = new MintButton { Text = UiText.Refresh, AccessibleName = UiText.RefreshAccessible, Dock = DockStyle.Fill, TabIndex = 0 };
         refresh.Click += (_, _) => RefreshRequested?.Invoke();
         actionArea.Controls.Add(refresh);
-        surface = new DetailsSurface { Dock = DockStyle.Top, TabStop = false, AccessibleRole = AccessibleRole.Grouping, AccessibleName = "Détails du quota Codex" };
+        surface = new DetailsSurface { Dock = DockStyle.Top, TabStop = false, AccessibleRole = AccessibleRole.Grouping, AccessibleName = UiText.DetailsAccessible };
         scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = BackColor };
         scroll.Controls.Add(surface);
         Controls.Add(scroll);
@@ -49,6 +49,9 @@ public sealed class DetailsForm : Form
 
     public void UpdateUsage(DetailsViewModel model)
     {
+        Text = UiText.Title;
+        refresh.AccessibleName = UiText.RefreshAccessible;
+        surface.AccessibleName = UiText.DetailsAccessible;
         if (lastDescription != model.Description)
         {
             lastDescription = model.Description;
@@ -58,7 +61,7 @@ public sealed class DetailsForm : Form
             surface.Invalidate();
         }
         refresh.Enabled = !model.Refreshing;
-        refresh.Text = model.Refreshing ? "Actualisation…" : "Actualiser";
+        refresh.Text = model.Refreshing ? UiText.Refreshing : UiText.Refresh;
     }
 
     private void ResizeSurface()
@@ -81,6 +84,9 @@ public sealed class DetailsForm : Form
             var desiredClientHeight = Math.Max((int)Math.Ceiling(670 * scale), naturalHeight + actionArea.Height + (int)Math.Ceiling(2 * scale));
             var clientHeight = Math.Min(desiredClientHeight, maximumHeight - frameHeight);
             if (ClientSize.Height != clientHeight) ClientSize = new Size(ClientSize.Width, clientHeight);
+            // WinForms can recalculate the non-client frame during a DPI transition.
+            // Enforce the final outer bounds after that calculation as well.
+            if (Height > maximumHeight) Height = maximumHeight;
             surface.Height = naturalHeight;
             PerformLayout();
             scroll.PerformLayout();
@@ -143,6 +149,9 @@ internal static class DetailsTheme
 
 internal sealed class DetailsSurface : Control
 {
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    internal bool CollectLayoutDiagnostics { get; set; }
+    internal List<string> TextOverflows { get; } = [];
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public DetailsViewModel? Model { get; set; }
@@ -179,36 +188,50 @@ internal sealed class DetailsSurface : Control
 
     internal float Draw(Graphics g, float width, bool paint)
     {
+        if (paint) TextOverflows.Clear();
         var m = Model;
         if (m is null) return 500;
         const float margin = 24;
         var cardWidth = width - margin * 2;
+        var headerTitleHeight = Math.Max(38, Measure(g, UiText.Title, 25, cardWidth, FontStyle.Bold));
+        var subtitleHeight = Math.Max(24, Measure(g, UiText.Subtitle, 12, cardWidth));
+        var headerExtra = headerTitleHeight - 38 + subtitleHeight - 24;
         if (paint)
         {
-            DrawText(g, "Quotas Codex", 25, FontStyle.Bold, DetailsTheme.Ink, new(margin, 15, cardWidth, 38));
-            DrawText(g, "Vos quotas, en un coup d’œil.", 12, FontStyle.Regular, DetailsTheme.Muted, new(margin, 56, cardWidth, 24));
-            Pill(g, "CodexMonitor 1.0.0", new(margin, 89, 149, 25), Color.FromArgb(226, 243, 236), DetailsTheme.Muted);
+            DrawText(g, UiText.Title, 25, FontStyle.Bold, DetailsTheme.Ink, new(margin, 15, cardWidth, headerTitleHeight), true);
+            DrawText(g, UiText.Subtitle, 12, FontStyle.Regular, DetailsTheme.Muted, new(margin, 56 + headerTitleHeight - 38, cardWidth, subtitleHeight), true);
+            Pill(g, AppPresentation.VersionLabel, new(margin, 89 + headerExtra, 149, 25), Color.FromArgb(226, 243, 236), DetailsTheme.Muted);
         }
-        float y = 132;
+        float y = 132 + headerExtra;
+        var x = margin + 174;
+        var rightWidth = cardWidth - 192;
+        var headingHeight = Math.Max(19, Measure(g, UiText.SelectedHeading, 9, rightWidth, FontStyle.Bold));
+        var quotaHeight = Math.Max(40, Measure(g, m.QuotaLabel, 22, rightWidth, FontStyle.Bold));
+        var bucketHeight = Math.Max(26, Measure(g, m.Bucket, 12, rightWidth));
+        var statusHeight = Math.Max(28, Measure(g, m.Status, 9, rightWidth - 12, FontStyle.Bold) + 8);
+        var labelY = y + 49 + headingHeight - 19;
+        var bucketY = labelY + quotaHeight + 2;
+        var statusY = bucketY + bucketHeight + 9;
+        var quotaCardHeight = Math.Max(176, statusY - y + statusHeight + 22);
         if (paint)
         {
-            Card(g, new(margin, y, cardWidth, 176));
+            Card(g, new(margin, y, cardWidth, quotaCardHeight));
             DrawRing(g, new(margin + 22, y + 22, 132, 132), m);
-            var x = margin + 174;
-            var rightWidth = cardWidth - 192;
-            DrawText(g, "QUOTA SÉLECTIONNÉ", 9, FontStyle.Bold, DetailsTheme.Muted, new(x, y + 25, rightWidth, 19));
-            DrawText(g, m.QuotaLabel, 22, FontStyle.Bold, DetailsTheme.Ink, new(x, y + 49, rightWidth, 40));
-            DrawText(g, m.Bucket, 12, FontStyle.Regular, DetailsTheme.Muted, new(x, y + 91, rightWidth, 26));
-            Pill(g, m.Status, new(x, y + 126, rightWidth, 28), m.Percentage is null ? Color.FromArgb(237, 241, 239) : Color.FromArgb(232, 246, 239), m.Tone == BadgeTone.Green ? Color.FromArgb(32, 115, 88) : DetailsTheme.Tone(m.Tone));
+            DrawText(g, UiText.SelectedHeading, 9, FontStyle.Bold, DetailsTheme.Muted, new(x, y + 25, rightWidth, headingHeight), true);
+            DrawText(g, m.QuotaLabel, 22, FontStyle.Bold, DetailsTheme.Ink, new(x, labelY, rightWidth, quotaHeight), true);
+            DrawText(g, m.Bucket, 12, FontStyle.Regular, DetailsTheme.Muted, new(x, bucketY, rightWidth, bucketHeight), true);
+            Pill(g, m.Status, new(x, statusY, rightWidth, statusHeight), m.Percentage is null ? Color.FromArgb(237, 241, 239) : Color.FromArgb(232, 246, 239), m.Tone == BadgeTone.Green ? Color.FromArgb(32, 115, 88) : DetailsTheme.Tone(m.Tone));
         }
-        y += 192;
+        y += quotaCardHeight + 16;
         var half = (cardWidth - 12) / 2;
+        var timingHeight = Math.Max(TimingHeight(g, half, UiText.ResetHeading, m.ResetDate, m.ResetTime),
+            TimingHeight(g, half, UiText.ReadHeading, m.ReadDate, m.ReadTime));
         if (paint)
         {
-            TimingCard(g, new(margin, y, half, 108), "Réinitialisation", m.ResetDate, m.ResetTime, true);
-            TimingCard(g, new(margin + half + 12, y, half, 108), "Dernière lecture", m.ReadDate, m.ReadTime, false);
+            TimingCard(g, new(margin, y, half, timingHeight), UiText.ResetHeading, m.ResetDate, m.ResetTime, true);
+            TimingCard(g, new(margin + half + 12, y, half, timingHeight), UiText.ReadHeading, m.ReadDate, m.ReadTime, false);
         }
-        y += 124;
+        y += timingHeight + 16;
         if (m.Issue is not null)
         {
             var issueHeight = Measure(g, m.Issue, 11, cardWidth - 30) + 26;
@@ -230,17 +253,19 @@ internal sealed class DetailsSurface : Control
         y += noteHeight + 8;
         if (m.OtherQuotas.Count > 0)
         {
-            if (paint) DrawText(g, "Autres quotas", 12, FontStyle.Bold, DetailsTheme.Ink, new(margin, y, cardWidth, 27));
+            if (paint) DrawText(g, UiText.Others, 12, FontStyle.Bold, DetailsTheme.Ink, new(margin, y, cardWidth, 27));
             y += 32;
             foreach (var row in m.OtherQuotas)
             {
                 var titleHeight = Measure(g, row.Label, 11, cardWidth - 32, FontStyle.Bold);
-                var rowHeight = titleHeight + 61;
+                var rowText = Localization.Format(nameof(UiText.OtherRow), row.Value, row.Reset);
+                var valueHeight = Math.Max(34, Measure(g, rowText, 10, cardWidth - 32));
+                var rowHeight = titleHeight + valueHeight + 27;
                 if (paint)
                 {
                     Card(g, new(margin, y, cardWidth, rowHeight));
                     DrawText(g, row.Label, 11, FontStyle.Bold, DetailsTheme.Ink, new(margin + 16, y + 12, cardWidth - 32, titleHeight), true);
-                    DrawText(g, $"{row.Value} · remise à zéro : {row.Reset}", 10, FontStyle.Regular, DetailsTheme.Muted, new(margin + 16, y + titleHeight + 20, cardWidth - 32, 34), true);
+                    DrawText(g, rowText, 10, FontStyle.Regular, DetailsTheme.Muted, new(margin + 16, y + titleHeight + 20, cardWidth - 32, valueHeight), true);
                 }
                 y += rowHeight + 10;
             }
@@ -254,7 +279,7 @@ internal sealed class DetailsSurface : Control
         return y + 10;
     }
 
-    private static void DrawRing(Graphics g, RectangleF r, DetailsViewModel m)
+    private void DrawRing(Graphics g, RectangleF r, DetailsViewModel m)
     {
         using var background = new SolidBrush(Color.FromArgb(244, 251, 247));
         g.FillEllipse(background, r);
@@ -271,10 +296,15 @@ internal sealed class DetailsSurface : Control
             numberSize -= 1;
         }
         DrawText(g, m.PercentageText, numberSize, FontStyle.Bold, DetailsTheme.Ink, new(r.X + 4, r.Y + 39, r.Width - 8, 43), centered: true);
-        DrawText(g, m.Percentage is null ? "indisponible" : "restants", 10, FontStyle.Regular, DetailsTheme.Muted, new(r.X + 3, r.Y + 84, r.Width - 6, 21), centered: true);
+        DrawText(g, m.Percentage is null ? UiText.UnavailableLower : UiText.Remaining, 10, FontStyle.Regular, DetailsTheme.Muted, new(r.X + 3, r.Y + 84, r.Width - 6, 21), centered: true);
     }
 
-    private static void TimingCard(Graphics g, RectangleF r, string title, string date, string time, bool calendar)
+    private static float TimingHeight(Graphics g, float width, string title, string date, string time) =>
+        108 + Math.Max(0, Measure(g, title, 10, width - 59, FontStyle.Bold) - 24)
+            + Math.Max(0, Measure(g, date, 12, width - 28, FontStyle.Bold) - 27)
+            + Math.Max(0, Measure(g, time, 10, width - 28) - 22);
+
+    private void TimingCard(Graphics g, RectangleF r, string title, string date, string time, bool calendar)
     {
         Card(g, r);
         using var iconBackground = new SolidBrush(Color.FromArgb(231, 246, 239));
@@ -295,9 +325,12 @@ internal sealed class DetailsSurface : Control
             g.DrawLine(pen, x + 6.5f, y + 3, x + 6.5f, y + 6.5f);
             g.DrawLine(pen, x + 6.5f, y + 6.5f, x + 9.5f, y + 8);
         }
-        DrawText(g, title, 10, FontStyle.Bold, DetailsTheme.Muted, new(r.X + 47, r.Y + 17, r.Width - 59, 24));
-        DrawText(g, date, 12, FontStyle.Bold, DetailsTheme.Ink, new(r.X + 14, r.Y + 48, r.Width - 28, 27));
-        DrawText(g, time, 10, FontStyle.Regular, DetailsTheme.Muted, new(r.X + 14, r.Y + 78, r.Width - 28, 22));
+        var titleHeight = Math.Max(24, Measure(g, title, 10, r.Width - 59, FontStyle.Bold));
+        var dateHeight = Math.Max(27, Measure(g, date, 12, r.Width - 28, FontStyle.Bold));
+        var timeHeight = Math.Max(22, Measure(g, time, 10, r.Width - 28));
+        DrawText(g, title, 10, FontStyle.Bold, DetailsTheme.Muted, new(r.X + 47, r.Y + 17, r.Width - 59, titleHeight), true);
+        DrawText(g, date, 12, FontStyle.Bold, DetailsTheme.Ink, new(r.X + 14, r.Y + 48 + titleHeight - 24, r.Width - 28, dateHeight), true);
+        DrawText(g, time, 10, FontStyle.Regular, DetailsTheme.Muted, new(r.X + 14, r.Y + 78 + titleHeight - 24 + dateHeight - 27, r.Width - 28, timeHeight), true);
     }
 
     private static void Card(Graphics g, RectangleF r, Color? fill = null)
@@ -310,12 +343,12 @@ internal sealed class DetailsSurface : Control
         using var border = new Pen(DetailsTheme.Border, .7f);
         g.FillPath(brush, path); g.DrawPath(border, path);
     }
-    private static void Pill(Graphics g, string text, RectangleF r, Color background, Color ink)
+    private void Pill(Graphics g, string text, RectangleF r, Color background, Color ink)
     {
         using var path = DetailsTheme.Rounded(r, r.Height / 2);
         using var fill = new SolidBrush(background);
         g.FillPath(fill, path);
-        DrawText(g, text, 9, FontStyle.Bold, ink, r, centered: true);
+        DrawText(g, text, 9, FontStyle.Bold, ink, new(r.X + 6, r.Y + 4, r.Width - 12, r.Height - 8), wrap: true, centered: true);
     }
     private static float Measure(Graphics g, string text, float size, float width, FontStyle style = FontStyle.Regular)
     {
@@ -323,7 +356,7 @@ internal sealed class DetailsSurface : Control
         using var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter };
         return (float)Math.Ceiling(g.MeasureString(text, font, (int)width, format).Height);
     }
-    private static void DrawText(Graphics g, string text, float size, FontStyle style, Color color, RectangleF r, bool wrap = false, bool centered = false)
+    private void DrawText(Graphics g, string text, float size, FontStyle style, Color color, RectangleF r, bool wrap = false, bool centered = false)
     {
         using var font = new Font("Segoe UI", size * 96f / 72f, style, GraphicsUnit.Pixel);
         using var ink = new SolidBrush(color);
@@ -334,6 +367,20 @@ internal sealed class DetailsSurface : Control
             Trimming = StringTrimming.EllipsisCharacter,
             FormatFlags = wrap ? 0 : StringFormatFlags.NoWrap
         };
+        if (CollectLayoutDiagnostics)
+        {
+            var measured = g.MeasureString(text, font, new SizeF(wrap ? (int)r.Width : 10000, 10000), format);
+            if (centered && !wrap)
+            {
+                // The ring centers digits within a deliberately tight box. Font line
+                // spacing includes unused ascender/descender space; check actual glyph ink.
+                using var glyphs = new GraphicsPath();
+                glyphs.AddString(text, font.FontFamily, (int)style, font.Size, PointF.Empty, format);
+                measured = glyphs.GetBounds().Size;
+            }
+            if (measured.Height > r.Height + 1 || measured.Width > r.Width + 1)
+                TextOverflows.Add($"{text}: {measured.Width:0.#}x{measured.Height:0.#} > {r.Width:0.#}x{r.Height:0.#}");
+        }
         g.DrawString(text, font, ink, r, format);
     }
 }

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using CodexMonitor.Core;
 
 namespace CodexMonitor;
 
@@ -57,7 +58,7 @@ public sealed class AppServerClient : IDisposable
         {
             await client.RequestAsync("initialize", new
             {
-                clientInfo = new { name = "codex_monitor", title = "CodexMonitor", version = "1.0.0" }
+                clientInfo = new { name = "codex_monitor", title = "CodexMonitor", version = AppPresentation.Version }
             }, cancellation).ConfigureAwait(false);
             await client.WriteAsync(new { method = "initialized", @params = new { } }, cancellation).ConfigureAwait(false);
             return client;
@@ -70,7 +71,7 @@ public sealed class AppServerClient : IDisposable
     private async Task<JsonElement> RequestAsync(string method, object parameters, CancellationToken cancellation)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
-        if (reader.IsCompleted) throw new IOException("App-server connection closed.");
+        if (reader.IsCompleted) throw new IOException(UiText.ConnectionClosed);
         var id = Interlocked.Increment(ref nextId);
         var completion = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         pending[id] = completion;
@@ -101,10 +102,10 @@ public sealed class AppServerClient : IDisposable
             {
                 var line = await process.StandardOutput.ReadLineAsync(lifetime.Token).ConfigureAwait(false);
                 if (line is null) break;
-                if (line.Length > 1_048_576) throw new JsonException("Oversized app-server response.");
+                if (line.Length > 1_048_576) throw new JsonException(UiText.OversizedResponse);
                 using var doc = JsonDocument.Parse(line, new JsonDocumentOptions { MaxDepth = 64 });
                 var message = doc.RootElement;
-                if (message.ValueKind != JsonValueKind.Object) throw new JsonException("Invalid app-server envelope.");
+                if (message.ValueKind != JsonValueKind.Object) throw new JsonException(UiText.InvalidEnvelope);
                 if (!message.TryGetProperty("id", out var id)) continue; // Notifications cannot refresh our read timestamp.
                 if (message.TryGetProperty("method", out _))
                 {
@@ -115,14 +116,14 @@ public sealed class AppServerClient : IDisposable
                 if (id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var number) || !pending.TryGetValue(number, out var completion)) continue;
                 if (message.TryGetProperty("error", out var error))
                 {
-                    var code = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var codeElement) ? codeElement.ToString() : "unknown";
+                    var code = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var codeElement) ? codeElement.ToString() : null;
                     // Never expose upstream error text: it can include request URLs or authentication details.
-                    completion.TrySetException(new AppServerException($"Codex refuse la lecture (code {code}). Vérifiez « codex login status » et la connexion réseau."));
+                    completion.TrySetException(AppServerException.FromCode(code));
                 }
                 else if (message.TryGetProperty("result", out var result)) completion.TrySetResult(result.Clone());
-                else completion.TrySetException(new JsonException("Missing app-server result."));
+                else completion.TrySetException(new JsonException(UiText.MissingResult));
             }
-            FailPending(new IOException("App-server connection closed."));
+            FailPending(new IOException(UiText.ConnectionClosed));
         }
         catch (Exception e) when (e is IOException or JsonException or OperationCanceledException or ObjectDisposedException or InvalidOperationException)
         { FailPending(e); }
@@ -156,7 +157,14 @@ public sealed class AppServerClient : IDisposable
     }
 }
 
-public sealed class AppServerException(string message) : Exception(message);
+public sealed class AppServerException(string message) : Exception(message)
+{
+    public string? Code { get; private init; }
+    private bool IsServerError { get; init; }
+    public static AppServerException FromCode(string? code) => new("") { Code = code, IsServerError = true };
+    public override string Message => IsServerError
+        ? Localization.Format(nameof(UiText.ServerRefused), Code ?? UiText.UnknownBalance) : base.Message;
+}
 
 public static class CodexLocation
 {
@@ -166,7 +174,7 @@ public static class CodexLocation
         if (!string.IsNullOrWhiteSpace(overridePath))
         {
             if (Path.IsPathFullyQualified(overridePath) && File.Exists(overridePath) && overridePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return overridePath;
-            throw new FileNotFoundException("CODEX_MONITOR_CODEX_PATH doit désigner un exécutable existant par son chemin absolu.");
+            throw new FileNotFoundException(UiText.InvalidCliPath);
         }
         var native = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "OpenAI", "Codex", "bin", "codex.exe");
         if (File.Exists(native)) return native;
@@ -176,6 +184,6 @@ public static class CodexLocation
             try { var candidate = Path.Combine(folder, "codex.exe"); if (File.Exists(candidate)) return candidate; }
             catch (ArgumentException) { }
         }
-        throw new FileNotFoundException("Codex CLI natif introuvable. Installez Codex et connectez-vous avec « codex login ».");
+        throw new FileNotFoundException(UiText.NativeCliMissing);
     }
 }
