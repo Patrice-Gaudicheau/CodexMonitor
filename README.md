@@ -1,8 +1,10 @@
 # CodexMonitor
 
-**Your Codex usage, always one glance away.**
+[![CodexMonitor showing remaining Codex quota in the Windows notification area beside the clock, with its quota details window](docs/images/social-preview.png)](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest)
 
-[Download](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest) · [Installation guide](docs/INSTALLATION.md) · [MIT License](LICENSE)
+[Download](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest) · [Installation Guide](docs/INSTALLATION.md) · [MIT License](LICENSE)
+
+**Your Codex usage, always one glance away.**
 
 CodexMonitor is a lightweight Windows tray utility for your remaining OpenAI Codex usage quota. Read the numeric badge at a glance, then click for quota details and reset times.
 
