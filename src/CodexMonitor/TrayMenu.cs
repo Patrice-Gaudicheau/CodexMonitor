@@ -5,11 +5,11 @@ namespace CodexMonitor;
 internal static class TrayMenu
 {
     public sealed record Items(ToolStripMenuItem Refresh, ToolStripMenuItem Quota, ToolStripMenuItem Startup,
-        ToolStripMenuItem Language, ToolStripMenuItem About, ToolStripMenuItem Exit);
+        ToolStripMenuItem Language, ToolStripMenuItem About, ToolStripMenuItem Exit, ToolStripMenuItem WslFallback);
 
     public static Items Populate(
         ContextMenuStrip menu, Action refresh, Action buildQuotas, Action startup, Action about, Action exit,
-        Action<LanguagePreference>? selectLanguage = null)
+        Action<LanguagePreference>? selectLanguage = null, Action? toggleWslFallback = null, bool allowWslFallback = true)
     {
         var refreshItem = new ToolStripMenuItem(UiText.RefreshNow);
         var quotaItem = new ToolStripMenuItem(UiText.DisplayedQuota);
@@ -17,6 +17,8 @@ internal static class TrayMenu
         var aboutItem = new ToolStripMenuItem(UiText.About);
         var exitItem = new ToolStripMenuItem(UiText.Exit);
         var languageItem = new ToolStripMenuItem(UiText.LanguageMenu);
+        var wslItem = new ToolStripMenuItem(UiText.WslFallback) { Checked = allowWslFallback };
+        wslItem.Click += (_, _) => toggleWslFallback?.Invoke();
         foreach (var preference in Enum.GetValues<LanguagePreference>())
         {
             var item = new ToolStripMenuItem { Tag = preference };
@@ -28,8 +30,8 @@ internal static class TrayMenu
         startupItem.Click += (_, _) => startup();
         aboutItem.Click += (_, _) => about();
         exitItem.Click += (_, _) => exit();
-        menu.Items.AddRange([refreshItem, quotaItem, startupItem, languageItem, new ToolStripSeparator(), aboutItem, exitItem]);
-        var items = new Items(refreshItem, quotaItem, startupItem, languageItem, aboutItem, exitItem);
+        menu.Items.AddRange([refreshItem, quotaItem, wslItem, startupItem, languageItem, new ToolStripSeparator(), aboutItem, exitItem]);
+        var items = new Items(refreshItem, quotaItem, startupItem, languageItem, aboutItem, exitItem, wslItem);
         Relocalize(items, Localization.Preference);
         return items;
     }
@@ -40,6 +42,7 @@ internal static class TrayMenu
         items.Quota.Text = UiText.DisplayedQuota;
         items.Startup.Text = UiText.Startup;
         items.Language.Text = UiText.LanguageMenu;
+        items.WslFallback.Text = UiText.WslFallback;
         items.About.Text = UiText.About;
         items.Exit.Text = UiText.Exit;
         foreach (var item in items.Language.DropDownItems.OfType<ToolStripMenuItem>())

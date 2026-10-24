@@ -47,7 +47,8 @@ internal sealed class MonitorContext : ApplicationContext
         }
         _ = dispatcher.Handle; // Invisible UI dispatcher; no main window.
         menuItems = TrayMenu.Populate(tray.Menu, () => StartRefresh(true), BuildQuotaMenu,
-            ToggleStartup, () => MessageBox.Show(AppPresentation.AboutMessage, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Information), ExitThread, SelectLanguage);
+            ToggleStartup, () => MessageBox.Show(AppPresentation.AboutMessage, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Information), ExitThread,
+            SelectLanguage, ToggleWslFallback, settings.AllowWslFallback);
         refreshItem = menuItems.Refresh;
         quotaItem = menuItems.Quota;
         startupItem = menuItems.Startup;
@@ -127,6 +128,7 @@ internal sealed class MonitorContext : ApplicationContext
         if (refreshing || exiting) return;
         refreshing = true;
         refreshItem.Enabled = false;
+        menuItems.WslFallback.Enabled = false;
         if (manual) manualReads++; else automaticReads++;
         refreshTask = RefreshAsync();
     }
@@ -137,7 +139,7 @@ internal sealed class MonitorContext : ApplicationContext
         deadline.CancelAfter(TimeSpan.FromSeconds(25));
         try
         {
-            if (client is null) client = await AppServerClient.ConnectAsync(CodexLocation.Find(), deadline.Token);
+            if (client is null) client = await AppServerClient.ConnectAsync(CodexLocation.Find(settings.AllowWslFallback), deadline.Token);
             var result = await client.ReadQuotaAsync(deadline.Token);
             var fetched = UsageSnapshot.Parse(result, DateTimeOffset.UtcNow);
             if (exiting) return;
@@ -156,7 +158,7 @@ internal sealed class MonitorContext : ApplicationContext
         {
             refreshing = false;
             nextRefresh = DateTimeOffset.UtcNow.AddSeconds(60);
-            if (!exiting) { refreshItem.Enabled = true; UpdatePresentation(); }
+            if (!exiting) { refreshItem.Enabled = true; menuItems.WslFallback.Enabled = true; UpdatePresentation(); }
         }
     }
 
@@ -181,6 +183,23 @@ internal sealed class MonitorContext : ApplicationContext
 
     private string? Problem => readError is not null ? AppPresentation.ErrorMessage(readError)
         : issueKey is not null ? Localization.Get(issueKey) : null;
+
+    private void ToggleWslFallback()
+    {
+        if (refreshing || exiting) return;
+        var updated = settings with { AllowWslFallback = !settings.AllowWslFallback };
+        try
+        {
+            if (verificationDirectory is null) updated.Save();
+            settings = updated;
+            menuItems.WslFallback.Checked = settings.AllowWslFallback;
+            client?.Dispose(); client = null;
+            snapshot = null; readError = null; issueKey = null; failed = false;
+            StartRefresh(true);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { MessageBox.Show(UiText.SaveFailed, "CodexMonitor", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
 
     private void SelectLanguage(LanguagePreference preference)
     {

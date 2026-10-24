@@ -3,6 +3,8 @@ namespace CodexMonitor.Core;
 
 public static class UiText
 {
+    public static string WslFallback => Localization.Get(nameof(WslFallback));
+    public static string InvalidWslCliPath => Localization.Get(nameof(InvalidWslCliPath));
     public static string LanguageMenu => Localization.Get(nameof(LanguageMenu));
     public static string LanguageAutomatic => Localization.Get(nameof(LanguageAutomatic));
     public static string LanguageFrench => Localization.Get(nameof(LanguageFrench));

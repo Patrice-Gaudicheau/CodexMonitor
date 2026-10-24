@@ -12,6 +12,15 @@ internal static class Program
     private static async Task<int> Main(string[] args)
     {
         if (args.Contains("app-server")) return await FakeServer();
+        if (args.Length == 2 && args[0] == "--wsl-job-owner")
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var wsl = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "wsl.exe");
+            using var ownerClient = await AppServerClient.ConnectAsync(CodexCommand.Wsl(wsl, null, WslIntegrationTests.LinuxPath(args[1])), cancellation.Token);
+            File.WriteAllText(args[1] + ".owner", ownerClient.ProcessId.ToString());
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            return 0;
+        }
         if (args.Length == 2 && args[0] == "--job-owner")
         {
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -28,6 +37,7 @@ internal static class Program
             System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
             LocalizationTests.Run(Test);
             LanguageOverrideTests.Run(Test);
+            WslFallbackTests.Run(Test);
             Test("remaining values 100/87/50/9/0", () =>
             {
                 foreach (var remaining in new[] { 100, 87, 50, 9, 0 })
@@ -329,6 +339,8 @@ internal static class Program
                 True(!ProcessExists(pid), "Orphan app-server after disposal");
                 passed++;
             }
+            if (args.Contains("--wsl") || args.Contains("--live-wsl"))
+                passed += await WslIntegrationTests.RunAsync(args.Contains("--live-wsl"));
             Console.WriteLine($"PASS: {passed} test groups");
             return 0;
         }

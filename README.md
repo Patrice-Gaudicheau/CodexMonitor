@@ -10,7 +10,7 @@ CodexMonitor is a lightweight Windows tray utility for your remaining OpenAI Cod
 
 > **Unofficial community project. Not affiliated with, endorsed by, or sponsored by OpenAI.**
 
-**v1.1.0** brings French and English support with instant language switching. Get the standalone Windows x64 executable from [GitHub Releases](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest).
+**v1.2.0** adds optional WSL fallback when the native Windows Codex CLI is absent, alongside French and English support with instant language switching. Get the standalone Windows x64 executable from [GitHub Releases](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest).
 
 ## Features
 
@@ -18,8 +18,9 @@ CodexMonitor is a lightweight Windows tray utility for your remaining OpenAI Cod
 - Automatic refresh about every 60 seconds, plus manual refresh.
 - Choice of available quotas, including five-hour and weekly limits when supplied by your account.
 - Native details window with a circular indicator, reset time, and last successful reading.
-- French or English, selected automatically or through a saved manual preference in v1.1.0.
+- French or English, selected automatically or through a saved manual preference introduced in v1.1.0.
 - Optional startup with Windows and protection against duplicate instances.
+- Optional WSL fallback when no native Windows Codex CLI is found (enabled by default).
 - Portable, self-contained executable: no installation wizard or separate .NET installation.
 
 ## Screenshots
@@ -37,7 +38,7 @@ The mint-green design, quota indicator, and layout are shared by both languages.
 ## Requirements
 
 - Windows x64.
-- An authenticated **native Windows Codex CLI** and an account that supplies ChatGPT quota information. A WSL-only installation is not sufficient; API-key-only accounts may not supply these percentages.
+- An authenticated **Codex CLI on Windows or WSL** and an account that supplies ChatGPT quota information. Windows takes priority; WSL is used when the Windows CLI is absent and fallback is enabled. API-key-only accounts may not supply these percentages.
 - Network access for quota retrieval.
 
 No .NET SDK or runtime installation is needed to run the downloaded executable. Normal use does not require administrator privileges. See the [installation guide](docs/INSTALLATION.md#check-the-native-windows-codex-cli) for CLI availability and sign-in checks.
@@ -64,7 +65,8 @@ Compare the hash with the entry for `CodexMonitor.exe` in **SHA256SUMS.txt from 
 - **Left-click** the badge to open details. Dates and times use your local Windows timezone. Press Esc or close the window to return to the tray.
 - **Right-click** for the context menu. Use **Displayed quota** to select a quota, or **Refresh now** to request a reading. The details window also has a **Refresh** button, disabled while a reading is in progress.
 - Toggle **Start with Windows** to enable or disable startup at sign-in. It is disabled by default; enable it after placing the executable in its permanent folder.
-- In v1.1.0, open **Langue / Language** to choose **Automatic (Windows)**, **Français**, or **English**.
+- Open **Langue / Language** to choose **Automatic (Windows)**, **Français**, or **English**.
+- **Use WSL when the Windows CLI is missing** enables or disables automatic fallback. It is enabled by default and saved with your preferences. WSL uses its default distribution and its own Codex sign-in; see [WSL setup](docs/INSTALLATION.md#wsl-fallback).
 - Choose **Exit** before replacing the executable or when you want to stop monitoring.
 
 Menu labels follow the selected interface language. Available quotas depend on what Codex supplies for your account; CodexMonitor does not estimate missing limits.
@@ -84,14 +86,14 @@ Both languages are included in the same standalone executable. See [localization
 3. Replace `CodexMonitor.exe` in the same permanent folder.
 4. Run it again.
 
-Quota and language preferences are stored separately in `%LOCALAPPDATA%\CodexMonitor\settings.json` and survive replacement of the executable. v1.0.0 settings remain compatible; a missing language preference defaults to Automatic. Keeping the executable at the same path preserves its startup registration. If you move it, enable **Start with Windows** again from its new location. See [updating and removing the application](docs/INSTALLATION.md#updating).
+Quota, language, and WSL fallback preferences are stored separately in `%LOCALAPPDATA%\CodexMonitor\settings.json` and survive replacement of the executable. Older settings remain compatible; a missing language preference defaults to Automatic, and a missing WSL preference enables fallback. Keeping the executable at the same path preserves its startup registration. If you move it, enable **Start with Windows** again from its new location. See [updating and removing the application](docs/INSTALLATION.md#updating).
 
 ## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
 | No visible icon | Open the notification overflow and adjust its visibility in Windows taskbar settings. |
-| Gray dash or connection warning | Check the native CLI, authentication, network connection, and details window. The application retries automatically. |
+| Gray dash or connection warning | Check the CLI and authentication in the environment being used (Windows or WSL), the network, and the details window. The application retries automatically. |
 | No five-hour quota | Some accounts provide only a weekly limit or other quotas. Check **Displayed quota**. |
 | A second launch does nothing | Only one instance runs in the current Windows session. Use the existing tray icon. |
 | Startup stops working after moving the EXE | Re-enable **Start with Windows** from the new location. |
@@ -104,7 +106,7 @@ Building requires Windows, PowerShell, and the .NET SDK version specified in [gl
 
 ```powershell
 .\scripts\Test.ps1
-.\scripts\Build.ps1 -OutputDirectory .\dist\v1.1.0\win-x64
+.\scripts\Build.ps1 -OutputDirectory .\dist\v1.2.0\win-x64
 ```
 
 The build produces a standalone `CodexMonitor.exe`. See [development and verification](docs/DEVELOPMENT.md), the [recorded test results](docs/TEST-RESULTS.md), and the [v1.0.0 UI redesign history](docs/UI-REDESIGN.md).

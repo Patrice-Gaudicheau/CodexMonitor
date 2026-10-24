@@ -25,7 +25,7 @@ try {
         if ($process.ExitCode -ne 0) { throw "Localization verification failed: $culture. Inspect $output\failure.txt" }
         $report = Get-Content -LiteralPath (Join-Path $output 'localization.json') -Raw | ConvertFrom-Json
         $expected = if ($culture -eq 'fr-FR') { 'fr-FR' } else { 'en-US' }
-        if ($report.culture -ne $expected -or $report.version -ne '1.1.0') { throw 'Unexpected culture/version' }
+        if ($report.culture -ne $expected -or $report.version -ne '1.2.0') { throw 'Unexpected culture/version' }
         if (@($report.embeddedResources).Count -ne 2 -or $report.resourceCount -lt 80) { throw 'Embedded localization resources missing' }
         if (@($report.observations).Count -ne 66) { throw 'Incomplete native rendering matrix' }
         if (@($report.observations | Where-Object { $_.overflows.Count -gt 0 }).Count -ne 0) { throw 'Text clipping detected' }

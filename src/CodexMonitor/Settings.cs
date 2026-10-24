@@ -5,7 +5,7 @@ using Microsoft.Win32;
 
 namespace CodexMonitor;
 
-public sealed record Settings(string? SelectedQuota = null, string? Language = "automatic")
+public sealed record Settings(string? SelectedQuota = null, string? Language = "automatic", bool AllowWslFallback = true)
 {
     [JsonIgnore]
     public LanguagePreference PreferredLanguage => Localization.ParsePreference(Language);

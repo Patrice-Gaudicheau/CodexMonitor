@@ -78,11 +78,13 @@ Click the badge to view details.</value></data>
   <data name="SaveFailed" xml:space="preserve"><value>Unable to save the selected quota.</value></data>
   <data name="StartupFailed" xml:space="preserve"><value>Windows did not allow automatic startup to be registered.</value></data>
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred. Retrying automatically.</value></data>
-  <data name="CliMissing" xml:space="preserve"><value>Codex CLI not found. Check the native installation and CODEX_MONITOR_CODEX_PATH.</value></data>
+  <data name="WslFallback" xml:space="preserve"><value>Use WSL when the Windows CLI is missing</value></data>
+  <data name="InvalidWslCliPath" xml:space="preserve"><value>CODEX_MONITOR_WSL_CODEX_PATH must be an absolute Linux path.</value></data>
+  <data name="CliMissing" xml:space="preserve"><value>Codex CLI not found. Check the Windows installation or enable WSL fallback. Also check CODEX_MONITOR_CODEX_PATH.</value></data>
   <data name="Timeout" xml:space="preserve"><value>Reading Codex quotas timed out after 25 seconds. Retrying automatically in 60 seconds.</value></data>
   <data name="InvalidResponse" xml:space="preserve"><value>Unexpected Codex response. Check the CLI version; retrying in 60 seconds.</value></data>
-  <data name="ConnectionUnavailable" xml:space="preserve"><value>Unable to connect to Codex. Check “codex login status” and your network connection; retrying in 60 seconds.</value></data>
-  <data name="ServerRefused" xml:space="preserve"><value>Codex rejected the quota request (code {0}). Check “codex login status” and your network connection.</value></data>
+  <data name="ConnectionUnavailable" xml:space="preserve"><value>Unable to connect to Codex. Check “codex login status” in the environment in use (Windows or WSL), the CLI and your network; retrying in 60 seconds.</value></data>
+  <data name="ServerRefused" xml:space="preserve"><value>Codex rejected the quota request (code {0}). Check “codex login status” in the environment in use (Windows or WSL) and your network.</value></data>
   <data name="InvalidCliPath" xml:space="preserve"><value>CODEX_MONITOR_CODEX_PATH must be the absolute path to an existing executable.</value></data>
   <data name="NativeCliMissing" xml:space="preserve"><value>Native Codex CLI not found. Install Codex and sign in with “codex login”.</value></data>
   <data name="ConnectionClosed" xml:space="preserve"><value>App Server connection closed.</value></data>

@@ -20,12 +20,12 @@ public sealed class AppServerClient : IDisposable
     private int disposed;
     public int ProcessId => process.Id;
 
-    private AppServerClient(string executable)
+    private AppServerClient(CodexCommand command)
     {
         job = new ProcessJob();
         process = new Process
         {
-            StartInfo = new ProcessStartInfo(executable)
+            StartInfo = new ProcessStartInfo(command.Executable)
             {
                 UseShellExecute = false, CreateNoWindow = true,
                 RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
@@ -33,9 +33,7 @@ public sealed class AppServerClient : IDisposable
                 StandardErrorEncoding = Encoding.UTF8
             }
         };
-        process.StartInfo.ArgumentList.Add("app-server");
-        process.StartInfo.ArgumentList.Add("--listen");
-        process.StartInfo.ArgumentList.Add("stdio://");
+        foreach (var argument in command.Arguments) process.StartInfo.ArgumentList.Add(argument);
         try
         {
             process.Start();
@@ -51,9 +49,13 @@ public sealed class AppServerClient : IDisposable
         errors = DrainErrorsAsync();
     }
 
-    public static async Task<AppServerClient> ConnectAsync(string executable, CancellationToken cancellation)
+    public static Task<AppServerClient> ConnectAsync(string executable, CancellationToken cancellation) =>
+        ConnectAsync(CodexCommand.Native(executable), cancellation);
+
+    public static async Task<AppServerClient> ConnectAsync(CodexCommand command, CancellationToken cancellation)
     {
-        var client = new AppServerClient(executable);
+        cancellation.ThrowIfCancellationRequested();
+        var client = new AppServerClient(command);
         try
         {
             await client.RequestAsync("initialize", new
@@ -147,6 +149,10 @@ public sealed class AppServerClient : IDisposable
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
         lifetime.Cancel();
         FailPending(new ObjectDisposedException(nameof(AppServerClient)));
+        // Give the Linux server EOF before closing its Windows WSL launcher.
+        // A Windows Job Object alone cannot own Linux processes inside WSL.
+        try { process.StandardInput.Close(); process.WaitForExit(2000); }
+        catch (Exception e) when (e is IOException or InvalidOperationException) { }
         job.Dispose();
         try { if (!process.HasExited) { process.Kill(true); process.WaitForExit(2000); } } catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         // Disposal of stream owners only after their read loops have stopped.
@@ -164,26 +170,4 @@ public sealed class AppServerException(string message) : Exception(message)
     public static AppServerException FromCode(string? code) => new("") { Code = code, IsServerError = true };
     public override string Message => IsServerError
         ? Localization.Format(nameof(UiText.ServerRefused), Code ?? UiText.UnknownBalance) : base.Message;
-}
-
-public static class CodexLocation
-{
-    public static string Find()
-    {
-        var overridePath = Environment.GetEnvironmentVariable("CODEX_MONITOR_CODEX_PATH");
-        if (!string.IsNullOrWhiteSpace(overridePath))
-        {
-            if (Path.IsPathFullyQualified(overridePath) && File.Exists(overridePath) && overridePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return overridePath;
-            throw new FileNotFoundException(UiText.InvalidCliPath);
-        }
-        var native = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "OpenAI", "Codex", "bin", "codex.exe");
-        if (File.Exists(native)) return native;
-        foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
-        {
-            if (!Path.IsPathFullyQualified(folder)) continue;
-            try { var candidate = Path.Combine(folder, "codex.exe"); if (File.Exists(candidate)) return candidate; }
-            catch (ArgumentException) { }
-        }
-        throw new FileNotFoundException(UiText.NativeCliMissing);
-    }
 }

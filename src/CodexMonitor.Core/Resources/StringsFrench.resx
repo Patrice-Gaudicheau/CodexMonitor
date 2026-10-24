@@ -78,11 +78,13 @@ Un clic sur le badge affiche les détails.</value></data>
   <data name="SaveFailed" xml:space="preserve"><value>Impossible d’enregistrer le quota sélectionné.</value></data>
   <data name="StartupFailed" xml:space="preserve"><value>Windows n’a pas autorisé l’enregistrement du démarrage automatique.</value></data>
   <data name="UnexpectedError" xml:space="preserve"><value>Une erreur inattendue est survenue. Nouvelle tentative automatique.</value></data>
-  <data name="CliMissing" xml:space="preserve"><value>Codex CLI introuvable. Vérifiez l’installation native et CODEX_MONITOR_CODEX_PATH.</value></data>
+  <data name="WslFallback" xml:space="preserve"><value>Utiliser WSL si le CLI Windows est absent</value></data>
+  <data name="InvalidWslCliPath" xml:space="preserve"><value>CODEX_MONITOR_WSL_CODEX_PATH doit être un chemin Linux absolu.</value></data>
+  <data name="CliMissing" xml:space="preserve"><value>Codex CLI introuvable. Vérifiez l’installation Windows ou activez le repli WSL. Vérifiez aussi CODEX_MONITOR_CODEX_PATH.</value></data>
   <data name="Timeout" xml:space="preserve"><value>La lecture Codex a dépassé 25 secondes. Nouvelle tentative automatique dans 60 secondes.</value></data>
   <data name="InvalidResponse" xml:space="preserve"><value>Réponse Codex inattendue. Vérifiez la version du CLI ; nouvelle tentative dans 60 secondes.</value></data>
-  <data name="ConnectionUnavailable" xml:space="preserve"><value>Connexion Codex indisponible. Vérifiez « codex login status » et le réseau ; nouvelle tentative dans 60 secondes.</value></data>
-  <data name="ServerRefused" xml:space="preserve"><value>Codex refuse la lecture (code {0}). Vérifiez « codex login status » et la connexion réseau.</value></data>
+  <data name="ConnectionUnavailable" xml:space="preserve"><value>Connexion Codex indisponible. Vérifiez « codex login status » dans l’environnement utilisé (Windows ou WSL), le CLI et le réseau ; nouvelle tentative dans 60 secondes.</value></data>
+  <data name="ServerRefused" xml:space="preserve"><value>Codex refuse la lecture (code {0}). Vérifiez « codex login status » dans l’environnement utilisé (Windows ou WSL) et le réseau.</value></data>
   <data name="InvalidCliPath" xml:space="preserve"><value>CODEX_MONITOR_CODEX_PATH doit désigner un exécutable existant par son chemin absolu.</value></data>
   <data name="NativeCliMissing" xml:space="preserve"><value>Codex CLI natif introuvable. Installez Codex et connectez-vous avec « codex login ».</value></data>
   <data name="ConnectionClosed" xml:space="preserve"><value>Connexion App Server fermée.</value></data>

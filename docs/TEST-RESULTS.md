@@ -1,8 +1,31 @@
-# Verification results — 13 October 2026
+# Verification results
 
 This record preserves the validation performed during implementation. The English documentation and presentation reviews did not change the implementation. Historical artifact hashes identify those local builds; use the checksum file from the intended [GitHub Release](https://github.com/Patrice-Gaudicheau/CodexMonitor/releases/latest) for download verification.
 
 Implementation and reproduction instructions: [LOCALIZATION.md](LOCALIZATION.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## v1.2.0 release preflight — 24 October 2026
+
+The third release adds saved WSL fallback while retaining Windows CLI priority. Version metadata, About, App Server handshake and localization verification now use **1.2.0**. The bundled .NET and Windows Desktop runtimes are **10.0.13**; their license and third-party notice texts were compared with the earlier packages and are unchanged. The notice header identifies the new version and runtimes.
+
+- Release solution build with SDK **10.0.402**: **passed, zero warnings and zero errors**.
+- Final v1.2.0 test runner with `--live --live-wsl`: **52 groups passed**, including real authenticated Windows/WSL quota reads, literal WSL arguments, settings compatibility and Linux process cleanup. Log: `artifacts/release-v1.2.0/tests.log`.
+- Release binaries are rebuilt from annotated tag **v1.2.0** and verified before publication. The distribution includes `CodexMonitor.exe`, `SHA256SUMS.txt`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; use the checksum published with that release for its final binary. Local source snapshots and verification reports remain under `artifacts/release-v1.2.0/`.
+
+## WSL fallback — 24 October 2026 (local source build)
+
+Validation ran on Windows x64 with .NET SDK **10.0.402** and the default **Ubuntu / WSL 2** distribution. This feature is a local change, separate from the published v1.1.0 executable.
+
+- Release solution build: **passed, zero warnings and zero errors**.
+- Full test runner with `--live --live-wsl` (equivalent to `scripts/Test.ps1 -NoRestore -Live -LiveWsl`): **52 groups passed**. The local log is `artifacts/verification/wsl-fallback-tests.log`.
+- Windows bundled/PATH discovery and explicit Windows override retain priority. Disabled fallback, absent WSL launcher, invalid Windows override and invalid Linux path cases passed. WSL configuration does not block an available Windows CLI.
+- Older settings enable fallback by default. Saving either choice preserves quota and language. The actual checkbox invokes its callback and retains its state when switching language.
+- Actual Windows-to-WSL stdio transport passed with a simulated Linux server at a path containing spaces, an apostrophe and shell metacharacters. Missing Linux CLI and canceled initialization failed as expected. Linux fixture cleanup passed after disposal, cancellation and abrupt termination of its Windows owner.
+- Real authenticated quota reads passed through both Windows and WSL. Windows CLI absence was simulated in the resolver without removing or altering installed executables. The real Linux App Server also exited after client disposal. Tests did not change saved user preferences or startup registration.
+- A local self-contained single-file executable was built at `dist/wsl-fallback/win-x64/CodexMonitor.exe`. SHA-256: `1F8130DBE8B45E701D43AB645511064E1AD33B6E411648388246E551230C4708`.
+- That standalone executable passed its French localization diagnostic: **93 embedded resources**, the new WSL menu item, and **66 native renderings** with no detected text overflow. Report: `artifacts/verification/wsl-fallback-standalone-fr/localization.json`.
+
+The following sections preserve the earlier **13 October 2026** verification and release history.
 
 ## Publication preflight
 

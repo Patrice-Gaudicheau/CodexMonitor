@@ -1,4 +1,4 @@
-param([switch]$Live, [switch]$NoRestore)
+param([switch]$Live, [switch]$Wsl, [switch]$LiveWsl, [switch]$NoRestore)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $env:DOTNET_CLI_HOME = Join-Path $projectRoot '.dotnet-home'
@@ -8,6 +8,8 @@ $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $env:NUGET_PACKAGES = Join-Path $projectRoot '.nuget\packages'
 $testArgs = @((Join-Path $projectRoot 'artifacts\verification\icons'))
 if ($Live) { $testArgs += '--live' }
+if ($Wsl) { $testArgs += '--wsl' }
+if ($LiveWsl) { $testArgs += '--live-wsl' }
 [string[]]$restoreArgs = @()
 if ($NoRestore) { $restoreArgs += '--no-restore' }
 & dotnet run --project (Join-Path $projectRoot 'tests\CodexMonitor.Tests\CodexMonitor.Tests.csproj') -c Release -p:BuildInParallel=false -p:UseSharedCompilation=false @restoreArgs -- @testArgs

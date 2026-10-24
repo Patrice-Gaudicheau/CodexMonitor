@@ -1,10 +1,10 @@
-Third-party notices for CodexMonitor v1.1.0
+Third-party notices for CodexMonitor v1.2.0
 
 CodexMonitor's original code and documentation are licensed under the MIT License.
 Copyright (c) 2026 Patrice Gaudicheau. See LICENSE.
 Third-party components retain the licenses and notices below.
 
-1. Bundled .NET runtime and Windows Desktop runtime, version 10.0.12
+1. Bundled .NET runtime and Windows Desktop runtime, version 10.0.13
 
 The following MIT license is reproduced unmodified from the runtime packages.
 Both packages carry the same license text. Their upstream third-party notices

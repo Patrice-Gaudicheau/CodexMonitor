@@ -41,7 +41,7 @@ internal static class LocalizationTests
                 foreach (var property in typeof(UiText).GetProperties())
                     True(property.GetValue(null) is string { Length: > 0 }, "Missing " + property.Name);
                 True(!AppPresentation.AboutMessage.Contains("{0}"), "About format argument not replaced");
-                True(AppPresentation.AboutMessage.StartsWith("CodexMonitor 1.1.0"), "Wrong about version");
+                True(AppPresentation.AboutMessage.StartsWith("CodexMonitor 1.2.0"), "Wrong about version");
             }
         });
         test("localized dates, times and fractions keep local timezone rather than regional culture", () =>
